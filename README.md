@@ -19,7 +19,8 @@ Requirements:
  - NumPy, SciPy
  - To use galpy, gala, or pynbody interface functions requires they be installed.
 
-For example, this will create a Plummer sphere with 2000 particles and run it for a few dynamical times:
+For example, this will create a Plummer sphere with 2000 particles, run it for a few dynamical times,
+and plot the particle positions before and after to show that it is in equilibrium:
 
     from gravhopper import Simulation, IC
     from astropy import units as u
