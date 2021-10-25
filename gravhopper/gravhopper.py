@@ -44,30 +44,31 @@ except ImportError:
 
 
 class GravHopperException(Exception):
-    "Parent class for all error exceptions."
+    """Parent class for all error exceptions."""
     pass
 
 class UninitializedSimulationException(GravHopperException):
-    "Exception for trying to run a simulation without any initial conditions."
+    """Exception for trying to run a simulation without any initial conditions."""
     pass
 
 class ICException(GravHopperException):
-    "Exception for trying to add ICs that don't make sense."
+    """Exception for trying to add ICs that don't make sense."""
     def __init__(self,msg):
         print(msg)
 
 class UnknownAlgorithmException(GravHopperException):
-    "Exception for using an unknown N-body algorithm name."
+    """Exception for using an unknown N-body algorithm name."""
     pass
     
 class ExternalPackageException(GravHopperException):
-    "Exception for trying to call a pynbody/galpy/gala function when not using them."
+    """Exception for trying to call a pynbody/galpy/gala function when not using them."""
     def __init__(self,msg):
         print(msg)
 
 
 class Simulation(object):
-    "Main class for N-body simulation."
+    """Main class for N-body simulation."""
+    
     def __init__(self, dt=1*u.Myr, eps=100*u.pc, algorithm='tree'):
         """Initializes class variables, including defaults.
 
@@ -105,7 +106,8 @@ class Simulation(object):
       
         
     def run(self, N=1):
-        "Run N timesteps of the simulation."
+        """Run N timesteps of the simulation. Will either initialize a simulation that has
+        not yet been run, or add onto the end of an already-run simulation."""
         
         # Initialize if first timestep, expand arrays for output if not
         if self.running==False:
@@ -129,7 +131,8 @@ class Simulation(object):
 
             
     def init_run(self, Nsnap=None):
-        "Initialize an N-body run."
+        """Initialize an N-body run."""
+        
         if self.ICarrays==False:
             raise UninitializedSimulationException
             
@@ -150,7 +153,9 @@ class Simulation(object):
         
         
     def reset(self):
-        # Resest state to before init_run() is called, but keep ICs and external forces.
+        """Reset a simulation to the state before init_run() was called. Initial conditions
+        and external forces are preserved."""
+
         self.running = False
         self.positions = None
         self.velocities = None
@@ -163,17 +168,20 @@ class Simulation(object):
         
 
     def snap(self, step):
+        """Return the given snapshot as a dict with entries 'pos', 'vel', and 'mass'."""
         return {'pos':self.positions[step, :, :], 'vel':self.velocities[step, :, :], \
             'mass':self.masses[:]}
                 
     def current_snap(self):
+        """Return the current snapshot as a dict with entries 'pos', 'vel', and 'mass'."""
         return self.snap(self.timestep)
             
     def prev_snap(self):
+        """Return the snapshot before the current snapshot as a dict with entries 'pos', 'vel', and 'mass'."""
         return self.snap(self.timestep-1)
 
     def perform_timestep(self):
-        "Advance the N-body simulation by one snapshot using a DKD leapfrog integrator."
+        """Advance the N-body simulation by one snapshot using a DKD leapfrog integrator."""
         # drift-kick-drift leapfrog:
         # half-step drift
         self.current_snap()['pos'][:] = self.prev_snap()['pos'] + 0.5 * self.prev_snap()['vel'] * self.params['dt']
@@ -291,8 +299,7 @@ class Simulation(object):
           mysimulation = Simulation()
           mysimulation.add_external_force(my_point_source_force, {'mass':1e8*u.Msun,
               'pos':np.array([10,0,0])*u.kpc})
-        """
-              
+        """    
               
         if isinstance(fn, list):
             # Probably a galpy combined potential. Add each one individually.
@@ -386,7 +393,7 @@ class Simulation(object):
 
 
     def nrows(self, array):
-        "Return the number of rows in an array or scalar."
+        """Return the number of rows in an array or scalar."""
         return array.shape[0] if array.ndim>1 else 1
 
 
@@ -433,8 +440,9 @@ class Simulation(object):
 
 
     def pyn_snap(self, timestep=None):
-        # Return snapshot given by the timestep as a pynbody snapshot. Gives final
-        # snapshot if timestep is None.
+        """Return snapshot given by the timestep as a pynbody snapshot. Gives final
+        snapshot if timestep is None."""
+        
         if USE_PYNBODY:
             if timestep is None:
                 timestep = self.timestep
@@ -535,8 +543,7 @@ class Simulation(object):
 
 
     def movie_particles(self, fname, fps=25, ax=None, *args, **kwargs):
-        """
-        Create a movie of the particles. Uses the plot_particles() function.
+        """Create a movie of the particles. Uses the plot_particles() function.
         
         Parameters:
             fname:      Movie output file name. Required.
@@ -569,7 +576,7 @@ class Simulation(object):
 
         
 class IC(object):
-    """Really just namespace for holding static methods that define various ICs."""
+    """Namespace for holding static methods that define various ICs."""
     
     @staticmethod
     def from_galpy_df(df, N=None, totmass=None, center_pos=None, center_vel=None, force_origin=True):
@@ -636,7 +643,8 @@ class IC(object):
     
          For example, here is how you might initialize a simulation that uses this:
           mysim = Simulation()
-          mysim.add_IC(IC.TSIS(N=10000, maxrad=100*u.kpc, totmass=1e11*u.Msun))"""
+          mysim.add_IC(IC.TSIS(N=10000, maxrad=100*u.kpc, totmass=1e11*u.Msun))
+          """
 
         if (N is None) or (maxrad is None) or (totmass is None):
             raise ICException("TSIS requires N, maxrad, and totmass.")
@@ -685,7 +693,8 @@ class IC(object):
 
         For example, here is how you might initialize a simulation that uses this:
          mysim = Simulation()
-         mysim.add_IC(IC.Plummer(N=10000, b=1*u.pc, totmass=1e6*u.Msun))"""
+         mysim.add_IC(IC.Plummer(N=10000, b=1*u.pc, totmass=1e6*u.Msun))
+         """
 
         if (N is None) or (b is None) or (totmass is None):
             raise ICException("Plummer requires N, b, and totmass.")
@@ -753,7 +762,8 @@ class IC(object):
         
         For example, here is how you might initialize a simulation that uses this:
          mysim = Simulation()
-         mysim.add_IC( IC.Hernquist(N=10000, a=1*u.kpc, totmass=1e10*u.Msun) )"""
+         mysim.add_IC( IC.Hernquist(N=10000, a=1*u.kpc, totmass=1e10*u.Msun) )
+         """
          
         rng = np.random.default_rng(seed)
      
@@ -850,7 +860,8 @@ class IC(object):
          mysim = Simulation()
          mysim.add_IC( IC.expdisk(N=10000, sigma0=200*u.Msun/u.pc**2, Rd=2*u.kpc,
                 z0=0.5*u.kpc, sigmaR=10*u.km/u.s,
-                halo_force=lambda x: (200*u.km/u.s)**2 / x) )"""
+                halo_force=lambda x: (200*u.km/u.s)**2 / x) )
+        """
                 
         rng = np.random.default_rng(seed)
 
@@ -933,6 +944,7 @@ def force_centers(positions, velocities, center_pos=None, center_vel=None, force
             
         Returns new (positions, velocities).
     """
+    
     newpos = positions
     newvel = velocities
     
