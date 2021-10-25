@@ -1,4 +1,4 @@
-from distutils.core import setup, Extension
+from setuptools import setup, Extension
 import numpy.distutils.misc_util
 
 with open("README.md", "r", encoding="utf-8") as fh:
