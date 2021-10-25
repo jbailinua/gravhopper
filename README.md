@@ -1,0 +1,43 @@
+# GravHopper
+
+Gravitational N-body simulation code written by Jeremy Bailin.
+
+Named in honour of pioneering computer scientist Grace Hopper. Doubly appropriate
+because it uses a leapfrog integrator.
+
+This is a simple Python-interface code for performing gravitational N-body simulations. It combines a simple Python interface for ease of use with a C backend for speed, and has the following features:
+ - Choice of Barnes-Hut tree or direct summation algorithm.
+ - Ability to include external potentials from galpy, gala, or user-supplied functions.
+ - Ability to return output as pynbody snapshots.
+ - Functions that generate equilibrium or near-equilibrium initial conditions (ICs) for several density profiles (Plummer, Hernquist, exponential disk), along with the ability to create ICs from galpy distribution function objects.
+ - Utility functions for plotting snapshots and making movies.
+ 
+For now, it uses a constant uniform timestep and constant uniform softening length.
+
+Requirements:
+ - Astropy
+ - NumPy, SciPy
+ - To use galpy, gala, or pynbody interface functions requires they be installed.
+
+For example, this will create a Plummer sphere with 2000 particles and run it for a few dynamical times:
+
+    from gravhopper import Simulation, IC
+    from astropy import units as u
+    import matplotlib.pyplot as plt
+    
+    # Create Plummer initial conditions.
+    Plummer_IC = IC.Plummer(N=2000, b=1*u.pc, totmass=1e6*u.Msun)
+    
+    # Create a new simulation with a time step of 0.005 Myr and a softening of 0.05 pc.
+    sim = Simulation(dt=0.005*u.Myr, eps=0.05*u.pc)
+    # Add the Plummer model to the simulation
+    sim.add_IC(Plummer_IC)
+    # Run for 400 time steps
+    sim.run(400)
+    
+    # Plot the x-y positions at the beginning and end.
+    fig = plt.figure(figsize=(12,4))
+    ax1 = fig.add_subplot(121, aspect=1.0)
+    ax2 = fig.add_subplot(122, aspect=1.0)
+    sim.plot_particles(snap='IC', unit=u.pc, xlim=[-10,10], ylim=[-10,10], ax=ax1, timeformat='{0:.1f}')
+    sim.plot_particles(snap='final', unit=u.pc, xlim=[-10,10], ylim=[-10,10], ax=ax2, timeformat='{0:.1f}')
