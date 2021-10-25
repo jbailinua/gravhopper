@@ -50,12 +50,12 @@ The code does not yet fully incorporate setuptools, so for now you will need to 
 in a subdirectory of the code that uses it. This is high on the priority list! Until then:
 
 1. Clone or download the git repository
-
+```
     git clone https://github.com/jbailinua/gravhopper.git
-    
+```
 2. Go into the gravhopper directory and build the code.
-
+```
     cd gravhopper
     python setup.py build_ext --inplace
-    
+```    
 3. Copy the gravhopper directory to wherever you want to use it.
