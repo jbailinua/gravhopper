@@ -16,7 +16,8 @@ For now, it uses a constant uniform timestep and constant uniform softening leng
 
 Requirements:
  - Astropy
- - NumPy, SciPy
+ - NumPy, SciPy, Matplotlib
+ - C compiler
  - To use galpy, gala, or pynbody interface functions requires they be installed.
 
 For example, this will create a Plummer sphere with 2000 particles, run it for a few dynamical times,
@@ -42,3 +43,19 @@ and plot the particle positions before and after to show that it is in equilibri
     ax2 = fig.add_subplot(122, aspect=1.0)
     sim.plot_particles(snap='IC', unit=u.pc, xlim=[-10,10], ylim=[-10,10], ax=ax1, timeformat='{0:.1f}')
     sim.plot_particles(snap='final', unit=u.pc, xlim=[-10,10], ylim=[-10,10], ax=ax2, timeformat='{0:.1f}')
+
+## Installation
+
+The code does not yet fully incorporate setuptools, so for now you will need to manually place the package
+in a subdirectory of the code that uses it. This is high on the priority list! Until then:
+
+1. Clone or download the git repository
+```
+    git clone https://github.com/jbailinua/gravhopper.git
+```
+2. Go into the gravhopper directory and build the code.
+```
+    cd gravhopper
+    python setup.py build_ext --inplace
+```    
+3. Copy the gravhopper directory to wherever you want to use it.
