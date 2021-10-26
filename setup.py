@@ -1,4 +1,4 @@
-from setuptools import setup, Extension
+from setuptools import setup, Extension, find_packages
 import numpy.distutils.misc_util
 
 with open("README.md", "r", encoding="utf-8") as fh:
@@ -20,7 +20,7 @@ setup(
             "Operating System :: OS Independent",
         ],
         package_dir={"":"."},
-        packages=setuptools.find_packages(where="."),
+        packages=find_packages(where="."),
         python_requires=">=3.6",
         
         ext_modules=[Extension("_jbgrav", ["_jbgrav.c"])],

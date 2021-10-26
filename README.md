@@ -47,8 +47,8 @@ and plot the particle positions before and after to show that it is in equilibri
     fig = plt.figure(figsize=(12,4))
     ax1 = fig.add_subplot(121, aspect=1.0)
     ax2 = fig.add_subplot(122, aspect=1.0)
-    sim.plot_particles(snap='IC', unit=u.pc, xlim=[-10,10], ylim=[-10,10], ax=ax1, timeformat='{0:.1f}')
-    sim.plot_particles(snap='final', unit=u.pc, xlim=[-10,10], ylim=[-10,10], ax=ax2, timeformat='{0:.1f}')
+    sim.plot_particles(snap='IC', unit=u.pc, xlim=[-10,10], ylim=[-10,10], ax=ax1)
+    sim.plot_particles(snap='final', unit=u.pc, xlim=[-10,10], ylim=[-10,10], ax=ax2)
 
 ## Installation
 
