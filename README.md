@@ -60,7 +60,7 @@ pip install gravhopper
 ```
 
 
-### Install from source
+### Option 2: Install from source
 
 To install directly from the current source:
 
