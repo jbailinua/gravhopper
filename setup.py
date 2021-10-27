@@ -14,12 +14,15 @@ setup(
         long_description=long_description,
         long_description_content_type="text/markdown",
         url="https://github.com/jbailinua/gravhopper",
+        license="BSD",
         classifiers=[
             "Programming Language :: Python :: 3",
             "License :: OSI Approved :: BSD License",
         ],
         package_dir={"":"."},
-        packages=find_packages(where="gravhopper"),
+        packages=find_packages(),
+        include_package_data=True,
+        
         python_requires=">=3.6",
         install_requires=[
             'numpy>=1.16',
