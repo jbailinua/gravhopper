@@ -52,17 +52,25 @@ and plot the particle positions before and after to show that it is in equilibri
 
 ## Installation
 
-The code does not yet fully incorporate setuptools, so for now you will need to manually place the package
-in a subdirectory of the code that uses it. Fixing this is high on the priority list! Until then:
+### Option 1: Pip
+
+If all goes well, you should be able to install GravHopper simply with:
+```
+pip install gravhopper
+```
+
+
+### Install from source
+
+To install directly from the current source:
 
 1. Clone or download the git repository
 ```
-    git clone https://github.com/jbailinua/gravhopper.git
+git clone https://github.com/jbailinua/gravhopper.git
 ```
 2. Go into the gravhopper directory and build the code.
 ```
-    cd gravhopper
-    python setup.py build_ext --inplace
+cd gravhopper
+python setup.py build_ext --inplace
 ```    
 3. Copy the gravhopper subdirectory to wherever you want to use it.
-
