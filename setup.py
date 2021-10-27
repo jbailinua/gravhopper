@@ -7,7 +7,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
         name="gravhopper",
-        version="0.2.1",
+        version="1.0.1",
         author="Jeremy Bailin",
         author_email="jbailin@ua.edu",
         description="Simple N-body code for Python",
