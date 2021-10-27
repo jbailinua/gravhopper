@@ -7,7 +7,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
         name="gravhopper",
-        version="1.0.0",
+        version="0.2.1",
         author="Jeremy Bailin",
         author_email="jbailin@ua.edu",
         description="Simple N-body code for Python",
@@ -23,7 +23,7 @@ setup(
         python_requires=">=3.6",
         install_requires=[
             'numpy>=1.16',
-            'scipy>=1.5',
+            'scipy>=1.3',
             'matplotlib>=2.2',
             'astropy>=4.0',
         ],
@@ -31,5 +31,4 @@ setup(
         ext_modules=[Extension("gravhopper._jbgrav", ["gravhopper/_jbgrav.c"])],
         include_dirs=numpy.distutils.misc_util.get_numpy_include_dirs(),
         )
-
 
