@@ -571,6 +571,8 @@ class Simulation(object):
         
         anim = FuncAnimation(fig, animate, frames=self.timestep+1, interval=ms_per_frame)
         anim.save(fname)
+        
+        plt.close()
 
 
 
