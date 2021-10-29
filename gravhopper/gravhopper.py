@@ -120,6 +120,11 @@ class Simulation(object):
         self.params['dt'] = dt
         return
         
+    def get_dt(self):
+        """Returns simulation time step."""
+        return self.params['dt']
+        
+        
         
     def set_eps(self, eps):
         """Sets the simulation gravitational softening length. Should be Astropy Quantity of dimension length."""
@@ -132,6 +137,10 @@ class Simulation(object):
         self.params['eps'] = eps
         return
         
+    def get_eps(self):
+        """Returns simulation gravitational softening length."""
+        return self.params['eps']
+        
         
     def set_algorithm(self, algorithm):
         """Sets the gravitational algorithm for the simulation. Should be 'tree' or 'direct'."""
@@ -140,6 +149,10 @@ class Simulation(object):
         else:
             raise ValueError("algorithm must be 'tree' or 'direct'.")
         return
+        
+    def get_algorithm(self):
+        """Returns simulation gravitational algorithm."""
+        return self.params['algorithm']
         
         
     def run(self, N=1):
