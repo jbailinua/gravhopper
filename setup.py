@@ -25,7 +25,7 @@ setup(
         
         python_requires=">=3.6",
         install_requires=[
-            'numpy>=1.16',
+            'numpy>=1.21',
             'scipy>=1.3',
             'matplotlib>=2.2',
             'astropy>=4.0',
