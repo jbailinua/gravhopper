@@ -101,9 +101,59 @@ class Simulation(object):
         self.massunit = u.Msun
         self.timeunit = u.Myr
         self.accelunit = self.velunit / self.timeunit
-        # Parameters. For historic reasons, put these in a params dict
-        self.params = {'dt':dt, 'eps':eps, 'algorithm':algorithm}
+        # Parameters. For historic reasons, these go in params dict.
+        # Use the set_ methods which sanity check the inputs
+        self.params = {}
+        self.set_dt(dt)
+        self.set_eps(eps)
+        self.set_algorithm(algorithm)
+
       
+    def set_dt(self, dt):
+        """Sets the simulation time step. Should be Astropy Quantity of dimension time."""
+        try:
+            # Make sure that it has dimensions of time
+            _ = dt.to(u.Myr)
+        except u.UnitConversionError:
+            raise ValueError("dt must have dimensions of time.")
+            
+        self.params['dt'] = dt
+        return
+        
+    def get_dt(self):
+        """Returns simulation time step."""
+        return self.params['dt']
+        
+        
+        
+    def set_eps(self, eps):
+        """Sets the simulation gravitational softening length. Should be Astropy Quantity of dimension length."""
+        try:
+            # Make sure that it has dimensions of length
+            _ = eps.to(u.kpc)
+        except u.UnitConversionError:
+            raise ValueError("eps must have dimensions of length.")
+            
+        self.params['eps'] = eps
+        return
+        
+    def get_eps(self):
+        """Returns simulation gravitational softening length."""
+        return self.params['eps']
+        
+        
+    def set_algorithm(self, algorithm):
+        """Sets the gravitational algorithm for the simulation. Should be 'tree' or 'direct'."""
+        if algorithm in ('tree', 'direct'):
+            self.params['algorithm'] = algorithm
+        else:
+            raise ValueError("algorithm must be 'tree' or 'direct'.")
+        return
+        
+    def get_algorithm(self):
+        """Returns simulation gravitational algorithm."""
+        return self.params['algorithm']
+        
         
     def run(self, N=1):
         """Run N timesteps of the simulation. Will either initialize a simulation that has
@@ -571,6 +621,8 @@ class Simulation(object):
         
         anim = FuncAnimation(fig, animate, frames=self.timestep+1, interval=ms_per_frame)
         anim.save(fname)
+        
+        plt.close()
 
 
 

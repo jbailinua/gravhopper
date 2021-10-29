@@ -49,6 +49,9 @@ and plot the particle positions before and after to show that it is in equilibri
     ax2 = fig.add_subplot(122, aspect=1.0)
     sim.plot_particles(snap='IC', unit=u.pc, xlim=[-10,10], ylim=[-10,10], ax=ax1)
     sim.plot_particles(snap='final', unit=u.pc, xlim=[-10,10], ylim=[-10,10], ax=ax2)
+    
+    # Make and save a movie of the simulation running
+    sim.movie_particles('Plummer_sim.mp4', unit=u.pc, xlim=[-10,10], ylim=[-10,10])
 
 ## Installation
 
