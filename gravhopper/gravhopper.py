@@ -676,13 +676,19 @@ class IC(object):
     def from_pyn_snap(pynsnap):
         """Turn a pynbody SimSnap into a set of GravHopper initial conditions."""
         if USE_PYNBODY:
-            # Grab numpy arrays and switch from pynsnap units to astropy units
-            pos_unit = u.Unit(str(pynsnap['pos'].units))
-            positions = pynsnap['pos'].view(type=np.ndarray) * pos_unit
-            vel_unit = u.Unit(str(pynsnap['vel'].units))
-            velocities = pynsnap['vel'].view(type=np.ndarray) * vel_unit
-            mass_unit = u.Unit(str(pynsnap['mass'].units))
-            masses = pynsnap['mass'].view(type=np.ndarray) * amass_unit
+            # Pynbody units can be complicated things with constants embedded in the
+            # unit. Convert them to a simple astropy units system of kpc-km/s-Msun.
+            pyn_pos_unit = pyn.units.Unit("kpc")
+            ap_pos_unit = u.kpc
+            pyn_vel_unit = pyn.units.Unit("km s**-1")
+            ap_vel_unit = u.km / u.s
+            pyn_mass_unit = pyn.units.Unit("Msol")
+            ap_mass_unit = u.Msun
+                
+            # Grab as numpy arrays and switch from pynsnap units to astropy units
+            positions = pynsnap['pos'].in_units(pyn_pos_unit).view(type=np.ndarray) * ap_pos_unit
+            velocities = pynsnap['vel'].in_units(pyn_vel_unit).view(type=np.ndarray) * ap_vel_unit
+            masses = pynsnap['mass'].in_units(pyn_mass_unit).view(type=np.ndarray) * ap_amass_unit
             
             outIC = {'pos':positions, 'vel':velocities, 'mass':masses}
             
