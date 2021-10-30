@@ -679,9 +679,9 @@ class IC(object):
             # Grab numpy arrays and switch from pynsnap units to astropy units
             pos_unit = u.Unit(str(pynsnap['pos'].units))
             positions = pynsnap['pos'].view(type=np.ndarray) * pos_unit
-            vel_units = u.Unit(str(pynsnap['vel'].units))
+            vel_unit = u.Unit(str(pynsnap['vel'].units))
             velocities = pynsnap['vel'].view(type=np.ndarray) * vel_unit
-            mass_units = u.Unit(str(pynsnap['mass'].units))
+            mass_unit = u.Unit(str(pynsnap['mass'].units))
             masses = pynsnap['mass'].view(type=np.ndarray) * amass_unit
             
             outIC = {'pos':positions, 'vel':velocities, 'mass':masses}
