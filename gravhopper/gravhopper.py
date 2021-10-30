@@ -670,6 +670,32 @@ class IC(object):
             
         else:
             raise ExternalPackageException("Could not import galpy to use from_galpy_df()")
+            
+            
+    @staticmethod
+    def from_pyn_snap(pynsnap):
+        """Turn a pynbody SimSnap into a set of GravHopper initial conditions."""
+        if USE_PYNBODY:
+            # Pynbody units can be complicated things with constants embedded in the
+            # unit. Convert them to a simple astropy units system of kpc-km/s-Msun.
+            pyn_pos_unit = pyn.units.Unit("kpc")
+            ap_pos_unit = u.kpc
+            pyn_vel_unit = pyn.units.Unit("km s**-1")
+            ap_vel_unit = u.km / u.s
+            pyn_mass_unit = pyn.units.Unit("Msol")
+            ap_mass_unit = u.Msun
+                
+            # Grab as numpy arrays and switch from pynsnap units to astropy units
+            positions = pynsnap['pos'].in_units(pyn_pos_unit).view(type=np.ndarray) * ap_pos_unit
+            velocities = pynsnap['vel'].in_units(pyn_vel_unit).view(type=np.ndarray) * ap_vel_unit
+            masses = pynsnap['mass'].in_units(pyn_mass_unit).view(type=np.ndarray) * ap_amass_unit
+            
+            outIC = {'pos':positions, 'vel':velocities, 'mass':masses}
+            
+            return outIC
+        else:
+            raise ExternalPackageException("Could not import pynbody to use from_pyn_snap()")
+            
 
     
     @staticmethod
