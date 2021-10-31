@@ -71,7 +71,7 @@ jobs:
     # alternatively, to publish when a GitHub Release is created, use the following rule:
     # if: github.event_name == 'release' && github.event.action == 'published'
     # What I want: release with tag starting with v
-    if: github.event_name == 'release' && startsWith(github.event.ref, 'refs/tags/v')
+    if: github.event_name == 'release' && startsWith(github.event.ref, 'v')
     steps:
       - uses: actions/download-artifact@v2
         with:
