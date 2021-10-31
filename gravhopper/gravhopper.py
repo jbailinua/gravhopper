@@ -293,34 +293,58 @@ class Simulation(object):
         # convert there and back again, a vector's tale.
         R, phi, z = galpy.util.coords.rect_to_cyl(pos[:,0], pos[:,1], pos[:,2])
         
-        # Some galpy potentials work on arrays of coordinates, but not all, so
-        # loop through to be safe.
-        if(len(pos.shape)) > 1:
-            Npos = pos.shape[0]
-        else:
-            Npos = 1
+        # Some galpy potentials work on arrays of coordinates, but not all. For
+        # potentials where it doesn't, loop through each position (note: much slower,
+        # so only do those where I know it doesn't work).
+        single_potentials = [galpy.potential.RazorThinExponentialDiskPotential]
+        if any([isinstance(galpypot, s) for s in single_potentials]):
+            # Do them one by one
+            if(len(pos.shape)) > 1:
+                Npos = pos.shape[0]
+            else:
+                Npos = 1
             
-        accel_R = np.zeros((Npos)) * self.accelunit
-        accel_phi = np.zeros((Npos)) * self.accelunit
-        accel_z = np.zeros((Npos)) * self.accelunit
+            accel_R = np.zeros((Npos)) * self.accelunit
+            accel_phi = np.zeros((Npos)) * self.accelunit
+            accel_z = np.zeros((Npos)) * self.accelunit
         
-        for parti in range(Npos):
+            for parti in range(Npos):
+                if time is None:
+                    accel_R[parti] = galpy.potential.evaluateRforces(galpypot, R[parti], z[parti], phi=phi[parti])
+                    # You might think that a function called evaluatephiforces would return
+                    # the forces in the phi direction. You would be wrong.
+                    # It actually returns dPhi/dphi, which is R times the actual phi force.
+                    # So we need to divide by R to get a physical force that we can transform
+                    # as a vector.
+                    accel_phi[parti] = galpy.potential.evaluatephiforces(galpypot, R[parti], z[parti], phi=phi[parti]) / R[parti]
+                    accel_z[parti] = galpy.potential.evaluatezforces(galpypot, R[parti], z[parti], phi=phi[parti])
+                else:
+                    accel_R[parti] = galpy.potential.evaluateRforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time)
+                    # See above.
+                    accel_phi[parti] = galpy.potential.evaluatephiforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time) / R[parti]
+                    accel_z[parti] = galpy.potential.evaluatezforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time)
+
+            ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
+            
+        else:
+            # Do it vectorized
             if time is None:
-                accel_R[parti] = galpy.potential.evaluateRforces(galpypot, R[parti], z[parti], phi=phi[parti])
+                accel_R = galpy.potential.evaluateRforces(galpypot, R, z, phi=phi)
                 # You might think that a function called evaluatephiforces would return
                 # the forces in the phi direction. You would be wrong.
                 # It actually returns dPhi/dphi, which is R times the actual phi force.
                 # So we need to divide by R to get a physical force that we can transform
                 # as a vector.
-                accel_phi[parti] = galpy.potential.evaluatephiforces(galpypot, R[parti], z[parti], phi=phi[parti]) / R[parti]
-                accel_z[parti] = galpy.potential.evaluatezforces(galpypot, R[parti], z[parti], phi=phi[parti])
+                accel_phi = galpy.potential.evaluatephiforces(galpypot, R, z, phi=phi) / R
+                accel_z = galpy.potential.evaluatezforces(galpypot, R, z, phi=phi)
+                ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
             else:
-                accel_R[parti] = galpy.potential.evaluateRforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time)
+                accel_R = galpy.potential.evaluateRforces(galpypot, R, z, phi=phi, t=time)
                 # See above.
-                accel_phi[parti] = galpy.potential.evaluatephiforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time) / R[parti]
-                accel_z[parti] = galpy.potential.evaluatezforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time)
-
-        ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
+                accel_phi = galpy.potential.evaluatephiforces(galpypot, R, z, phi=phi, t=time) / R
+                accel_z = galpy.potential.evaluatezforces(galpypot, R, z, phi=phi, t=time)
+                ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
+            
         accel = np.vstack((ax,ay,az)).T
         
         return accel
@@ -1033,111 +1057,6 @@ class IC(object):
         outIC = {'pos':positions, 'vel':velocities, 'mass': m}
         return outIC
 
-
-
-    @staticmethod
-    def expdisk_alt(sigma0=None, Rd=None, z0=None, sigmaR_Rd=None, external_rotcurve=None, N=None, \
-        center_pos=None, center_vel=None, force_origin=True, seed=None):
-        """Returns the positions, velocities, and masses for particles that
-        form an exponential disk with a sech^2 vertical distribution that is
-        in approximate equilibrium.
-        The parameters are:
-            sigma0: central surface density (astropy Quantity)
-            Rd: exponential scale length (astropy Quantity)
-            z0: scale height (astropy Quantity)
-            sigmaR_Rd: radial velocity dispersion at R=Rd (astropy Quantity)
-            external_rotcurve: function that returns the circular velocity of any external
-                force, or None if there is none. Input and output should be Astropy Quantities.
-            N: number of particles
-            center_pos: Force center of mass of simulation to here. Quantity array of size 3. Optional.
-            center_vel: Force center of mass velocity of simulation to this. Quantity array
-                of size 3. Optional.
-            force_origin: Equivalent to setting center_pos=np.array([0,0,0])*u.kpc
-                and center_vel=np.array([0,0,0])*u.km/u.s. Default True unless center_pos
-                and center_vel is set. If only one of center_mass and center_vel are set,
-                and force_origin is True, then the other is set to 0,0,0.
-            seed: Random number seed, to create reproducible ICs. Optional.
-
-        For example, here is how you might initialize a simulation that uses this:
-         mysim = Simulation()
-         mysim.add_IC( IC.expdisk(N=10000, sigma0=200*u.Msun/u.pc**2, Rd=2*u.kpc,
-                z0=0.5*u.kpc, sigmaR=10*u.km/u.s,
-                halo_force=lambda x: (200*u.km/u.s)**2 / x) )
-        """
-                
-        rng = np.random.default_rng(seed)
-
-        Rd_kpc = Rd.to(u.kpc).value
-        totmass = (np.pi * Rd**2 * sigma0).to(u.Msun)
-
-        # cylindrical radius transformation to give an exponential
-        Rax = np.arange(0.001*Rd_kpc, 10*Rd_kpc, 0.01*Rd_kpc)
-        R_cumprob = Rd_kpc**2 - Rd_kpc*np.exp(-Rax/Rd_kpc)*(Rax+Rd_kpc)
-        R_cumprob /= R_cumprob[-1]
-        probtransform = interp1d(R_cumprob, Rax)   # reverse interpolation
-        # now get the uniform random deviate and transform it
-        R_xi = rng.uniform(0.0, 1.0, size=N)
-        R0 = probtransform(R_xi) * u.kpc
-        # use random azimuth
-        phi0 = rng.uniform(0.0, 2.0*np.pi, size=N)
-        
-        # Figure out Omega^2 and kappa^2
-        def om2(rad):
-            # Input must be in kpc but with units stripped, because it's passed into np.derivative.
-            y_R = rad/(2.*Rd_kpc)
-            # Disk contribution
-            omega2 = np.pi * const.G * sigma0 / Rd * (special.iv(0,y_R)*special.kv(0,y_R) -
-                    special.iv(1,y_R)*special.kv(1,y_R))
- 
-            # Halo contribution                   
-            if external_rotcurve is not None:
-                omega_halo = external_rotcurve(rad*u.kpc) / (rad*u.kpc)
-                omega2 += omega_halo**2
-                
-            return omega2
-
-        Omega2 = om2(R0.to(u.kpc).value)
-        Omega = np.sqrt(Omega2).to(u.km/u.s/u.kpc)
-        kappa2 = 4.*Omega2 + R0 * derivative(om2, R0.to(u.kpc).value, 1e-3) / u.kpc
-        kappa = np.sqrt(kappa2).to(u.km/u.s/u.kpc)
-        
-        sigma_R = sigmaR_Rd * np.exp(-R0/Rd)
-        
-        # Sample the epicycle parameters: phase psi0, radial extension X.
-        # Calculate actual R and phi from that using Y/X = 4 Omega^2 / kappa^2
-        psi0 = rng.uniform(0.0, 2.*np.pi, size=N)
-        epi_X = np.abs(sigma_R.to(u.km/u.s)/kappa * rng.normal(size=N)).to(u.kpc)
-        epi_Y = (epi_X * 4. * Omega2 / kappa2).to(u.kpc)
-        vR = (epi_X * kappa * np.cos(psi0)).to(u.km/u.s)
-        vphi = (R0 * Omega + epi_Y * kappa * np.sin(psi0)).to(u.km/u.s)
-        
-        R = R0 + epi_X * np.sin(psi0)
-        phi = phi0 - (epi_Y / R0).value * np.cos(psi0)
-        
-        # Cartesian
-        x = R * np.cos(phi)
-        y = R * np.sin(phi)
-        # get z from uniform random deviate
-        z_xi = rng.uniform(0, 1.0, size=N)
-        z = 2 * z0 * np.arctanh(z_xi)
-        z *= (2 * (rng.uniform(0, 1, size=N) < 0.5)) - 1
-
-        # vertical velocity dispersion is
-        #  sigma2_z = pi G Sigma(R) z0 / 2
-        sigma2_z = np.pi * const.G * z0 * sigma0 * 0.5 * np.exp(-R/Rd)
-
-        vx = -vphi * np.sin(phi) + vR * np.cos(phi)
-        vy = vphi * np.cos(phi) + vR * np.sin(phi)
-        vz = np.sqrt(sigma2_z).to(u.km/u.s) * rng.normal(size=N)
-
-        m = np.ones((N)) * (totmass/N)
-        
-        # Force COM and/or COV
-        positions, velocities = force_centers(np.vstack((x,y,z)).T, np.vstack((vx,vy,vz)).T, \
-            center_pos=center_pos, center_vel=center_vel, force_origin=force_origin)
-        
-        outIC = {'pos':positions, 'vel':velocities, 'mass': m}
-        return outIC
 
 
 
