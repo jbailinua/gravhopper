@@ -288,34 +288,70 @@ class Simulation(object):
         
     def galpy_potential_wrapper(self, galpypot, pos, time=None):
         """Wrapper to calculate acceleration from a galpy potential object."""
-        
+
         # Galpy works exclusively in cylindrical coordinate frame, so we need to
         # convert there and back again, a vector's tale.
-        
         R, phi, z = galpy.util.coords.rect_to_cyl(pos[:,0], pos[:,1], pos[:,2])
-        if time is None:
-            accel_R = galpy.potential.evaluateRforces(galpypot, R, z, phi=phi)
-            # You might think that a function called evaluatephiforces would return
-            # the forces in the phi direction. You would be wrong.
-            # It actually returns dPhi/dphi, which is R times the actual phi force.
-            # So we need to divide by R to get a physical force that we can transform
-            # as a vector.
-            accel_phi = galpy.potential.evaluatephiforces(galpypot, R, z, phi=phi) / R
-            accel_z = galpy.potential.evaluatezforces(galpypot, R, z, phi=phi)
-            ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
-        else:
-            accel_R = galpy.potential.evaluateRforces(galpypot, R, z, phi=phi, t=time)
-            # See above.
-            accel_phi = galpy.potential.evaluatephiforces(galpypot, R, z, phi=phi, t=time) / R
-            accel_z = galpy.potential.evaluatezforces(galpypot, R, z, phi=phi, t=time)
-            ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
         
-        accel = np.vstack((ax, ay, az)).T
+        # Some galpy potentials work on arrays of coordinates, but not all. For
+        # potentials where it doesn't, loop through each position (note: much slower,
+        # so only do those where I know it doesn't work).
+        single_potentials = [galpy.potential.RazorThinExponentialDiskPotential]
+        if any([isinstance(galpypot, s) for s in single_potentials]):
+            # Do them one by one
+            if(len(pos.shape)) > 1:
+                Npos = pos.shape[0]
+            else:
+                Npos = 1
+            
+            accel_R = np.zeros((Npos)) * self.accelunit
+            accel_phi = np.zeros((Npos)) * self.accelunit
+            accel_z = np.zeros((Npos)) * self.accelunit
+        
+            for parti in range(Npos):
+                if time is None:
+                    accel_R[parti] = galpy.potential.evaluateRforces(galpypot, R[parti], z[parti], phi=phi[parti])
+                    # You might think that a function called evaluatephiforces would return
+                    # the forces in the phi direction. You would be wrong.
+                    # It actually returns dPhi/dphi, which is R times the actual phi force.
+                    # So we need to divide by R to get a physical force that we can transform
+                    # as a vector.
+                    accel_phi[parti] = galpy.potential.evaluatephiforces(galpypot, R[parti], z[parti], phi=phi[parti]) / R[parti]
+                    accel_z[parti] = galpy.potential.evaluatezforces(galpypot, R[parti], z[parti], phi=phi[parti])
+                else:
+                    accel_R[parti] = galpy.potential.evaluateRforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time)
+                    # See above.
+                    accel_phi[parti] = galpy.potential.evaluatephiforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time) / R[parti]
+                    accel_z[parti] = galpy.potential.evaluatezforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time)
+
+            ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
+            
+        else:
+            # Do it vectorized
+            if time is None:
+                accel_R = galpy.potential.evaluateRforces(galpypot, R, z, phi=phi)
+                # You might think that a function called evaluatephiforces would return
+                # the forces in the phi direction. You would be wrong.
+                # It actually returns dPhi/dphi, which is R times the actual phi force.
+                # So we need to divide by R to get a physical force that we can transform
+                # as a vector.
+                accel_phi = galpy.potential.evaluatephiforces(galpypot, R, z, phi=phi) / R
+                accel_z = galpy.potential.evaluatezforces(galpypot, R, z, phi=phi)
+                ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
+            else:
+                accel_R = galpy.potential.evaluateRforces(galpypot, R, z, phi=phi, t=time)
+                # See above.
+                accel_phi = galpy.potential.evaluatephiforces(galpypot, R, z, phi=phi, t=time) / R
+                accel_z = galpy.potential.evaluatezforces(galpypot, R, z, phi=phi, t=time)
+                ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
+            
+        accel = np.vstack((ax,ay,az)).T
+        
         return accel
         
 
 
-    def add_external_force(self, fn, args):
+    def add_external_force(self, fn, args=None):
         """Add a function that will return the force at a given position,
          which will be added as an external force to the simulation on top
          of the N-body force.
@@ -376,7 +412,7 @@ class Simulation(object):
 
 
 
-    def add_external_timedependent_force(self, fn, args):
+    def add_external_timedependent_force(self, fn, args=None):
         """Add a function that will return the force at a given position and time,
          which will be added as an external force to the simulation on top
          of the N-body force.
@@ -497,11 +533,25 @@ class Simulation(object):
             if timestep is None:
                 timestep = self.timestep
         
+            # I don't have a good converter between astropy units and pynbody units. Pynbody
+            # to astropy works okay via string, but not vice versa. Position should be fine,
+            # since it will very likely be a base unit, but velocity will certainly be composite,
+            # and mass might be too if it was calculated, so manually force them to km/s and Msun.
+            pyn_pos_unit = pyn.units.Unit("kpc")
+            ap_pos_unit = u.kpc
+            pyn_vel_unit = pyn.units.Unit("km s**-1")
+            ap_vel_unit = u.km / u.s
+            pyn_mass_unit = pyn.units.Unit("Msol")
+            ap_mass_unit = u.Msun
+                        
             sim = pyn.new(self.Np)
-            sim['pos'] = pyn.array.SimArray(self.snap(timestep)['pos'].value, str(self.snap(timestep)['pos'].unit))
-            sim['vel'] = pyn.array.SimArray(self.snap(timestep)['vel'].value, str(self.snap(timestep)['vel'].unit))
-            sim['mass'] = pyn.array.SimArray(self.snap(timestep)['mass'].value, str(self.snap(timestep)['mass'].unit))
-            sim['eps'] = self.params['eps']
+            sim['pos'] = pyn.array.SimArray(self.snap(timestep)['pos'].to(ap_pos_unit).value,\
+                pyn_pos_unit)
+            sim['vel'] = pyn.array.SimArray(self.snap(timestep)['vel'].to(ap_vel_unit).value, \
+                pyn_vel_unit)
+            sim['mass'] = pyn.array.SimArray(self.snap(timestep)['mass'].to(ap_mass_unit).value, \
+                pyn_mass_unit)
+            sim['eps'] = pyn.array.SimArray(self.params['eps'].to(ap_pos_unit).value, pyn_pos_unit)
             
             return sim
         else:
@@ -621,8 +671,6 @@ class Simulation(object):
         
         anim = FuncAnimation(fig, animate, frames=self.timestep+1, interval=ms_per_frame)
         anim.save(fname)
-        
-        plt.close()
 
 
 
@@ -907,7 +955,7 @@ class IC(object):
 
 
     @staticmethod
-    def expdisk(sigma0=None, Rd=None, z0=None, sigmaR_Rd=None, halo_force=None, halo_force_args=None, N=None, \
+    def expdisk(sigma0=None, Rd=None, z0=None, sigmaR_Rd=None, external_rotcurve=None, N=None, \
         center_pos=None, center_vel=None, force_origin=True, seed=None):
         """Returns the positions, velocities, and masses for particles that
         form an exponential disk with a sech^2 vertical distribution that is
@@ -917,13 +965,8 @@ class IC(object):
             Rd: exponential scale length (astropy Quantity)
             z0: scale height (astropy Quantity)
             sigmaR_Rd: radial velocity dispersion at R=Rd (astropy Quantity)
-            halo_force: function that returns the force of any external potential,
-                    or False if there isn't one. It is assumed that this is
-                    spherically symmetric about the origin. You can write a wrapper
-                    around Simulation.calculate_extra_acceleration() to include all
-                    of the extra forces that have been added. Optional.
-            halo_force_args: if halo_force is specified, this will be fed
-                    into the force function as the second parameter. Optional.
+            external_rotcurve: function that returns the circular velocity of any external
+                force, or None if there is none. Input and output should be Astropy Quantities.
             N: number of particles
             center_pos: Force center of mass of simulation to here. Quantity array of size 3. Optional.
             center_vel: Force center of mass velocity of simulation to this. Quantity array
@@ -969,27 +1012,27 @@ class IC(object):
         #  sigma2_z = pi G Sigma(R) z0 / 2
         # and the mean azimuthal velocity is
         #  <vphi> = vc
+        
 
         def om2(rad):
-            # Input must be in kpc but with units stripped, because it's passed into derivative.
+            # Input must be in kpc but with units stripped, because it's passed into np.derivative.
             y_R = rad/(2.*Rd_kpc)
-            om2_disk = np.pi * const.G * sigma0 / Rd * (special.iv(0,y_R)*special.kv(0,y_R) -
+            # Disk contribution
+            omega2 = np.pi * const.G * sigma0 / Rd * (special.iv(0,y_R)*special.kv(0,y_R) -
                     special.iv(1,y_R)*special.kv(1,y_R))
-            if halo_force is not None:
-                xpos = rad * u.kpc
-                ypos = np.zeros(shape=len(rad)) * u.kpc
-                zpos = np.zeros(shape=len(rad)) * u.kpc
-                pos = np.vstack((xpos,ypos,zpos)).T
-                om2_halo = np.abs(halo_force(pos,halo_force_args)[:,0]) / rad
-            else:
-                om2_halo = 0. * om2_disk   # make sure units are correct
-            return om2_disk + om2_halo
+ 
+            # Halo contribution                   
+            if external_rotcurve is not None:
+                omega_halo = external_rotcurve(rad*u.kpc) / (rad*u.kpc)
+                omega2 += omega_halo**2
+                
+            return omega2
 
         Omega2 = om2(R.to(u.kpc).value)
         kappa2 = 4.*Omega2 + R * derivative(om2, R.to(u.kpc).value, 1e-3) / u.kpc
 
         sigma_R = sigmaR_Rd * np.exp(-R/Rd)
-        sigma2_phi = sigma_R**2 * kappa2 / (4.*Omega2)
+        sigma2_phi = sigma_R**2 * 4 * Omega2 / kappa2
         sigma2_z = np.pi * const.G * z0 * sigma0 * 0.5 * np.exp(-R/Rd)
         vphi_mean = (R * np.sqrt(Omega2)).to(u.km/u.s)
 
@@ -1007,6 +1050,8 @@ class IC(object):
         
         outIC = {'pos':positions, 'vel':velocities, 'mass': m}
         return outIC
+
+
 
 
         

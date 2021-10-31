@@ -16,7 +16,7 @@ This is a simple Python-interface code for performing gravitational N-body simul
     to create ICs from galpy distribution function objects or pynbody snapshots.
  - Utility functions for plotting snapshots and making movies.
  
-For now, it uses a constant uniform timestep and constant uniform softening length.
+For now, it uses a constant uniform timestep and constant uniform Plummer softening.
 
 Requirements:
  - Astropy
