@@ -654,10 +654,7 @@ class Simulation(object):
         
         # Create axis if necessary.
         if ax is None:
-            close_plot = True
             ax = plt.subplot(111, aspect=1.0)
-        else:
-            close_plot = False
         fig = ax.get_figure()
             
         # Initial frame
@@ -674,9 +671,6 @@ class Simulation(object):
         
         anim = FuncAnimation(fig, animate, frames=self.timestep+1, interval=ms_per_frame)
         anim.save(fname)
-        
-        if close_plot:
-            plt.close()
 
 
 
