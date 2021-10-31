@@ -288,6 +288,10 @@ class Simulation(object):
         
     def galpy_potential_wrapper(self, galpypot, pos, time=None):
         """Wrapper to calculate acceleration from a galpy potential object."""
+
+        # Galpy works exclusively in cylindrical coordinate frame, so we need to
+        # convert there and back again, a vector's tale.
+        R, phi, z = galpy.util.coords.rect_to_cyl(pos[:,0], pos[:,1], pos[:,2])
         
         # Some galpy potentials work on arrays of coordinates, but not all, so
         # loop through to be safe.
@@ -296,37 +300,34 @@ class Simulation(object):
         else:
             Npos = 1
             
-        accel = np.zeros((Npos,3)) * self.accel_unit
+        accel_R = np.zeros((Npos)) * self.accelunit
+        accel_phi = np.zeros((Npos)) * self.accelunit
+        accel_z = np.zeros((Npos)) * self.accelunit
         
         for parti in range(Npos):
-            # Galpy works exclusively in cylindrical coordinate frame, so we need to
-            # convert there and back again, a vector's tale.
-        
-            R, phi, z = galpy.util.coords.rect_to_cyl(pos[parti,0], pos[parti,1], pos[parti,2])
             if time is None:
-                accel_R = galpy.potential.evaluateRforces(galpypot, R, z, phi=phi)
+                accel_R[parti] = galpy.potential.evaluateRforces(galpypot, R[parti], z[parti], phi=phi[parti])
                 # You might think that a function called evaluatephiforces would return
                 # the forces in the phi direction. You would be wrong.
                 # It actually returns dPhi/dphi, which is R times the actual phi force.
                 # So we need to divide by R to get a physical force that we can transform
                 # as a vector.
-                accel_phi = galpy.potential.evaluatephiforces(galpypot, R, z, phi=phi) / R
-                accel_z = galpy.potential.evaluatezforces(galpypot, R, z, phi=phi)
-                ax_i, ay_i, az_i = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
+                accel_phi[parti] = galpy.potential.evaluatephiforces(galpypot, R[parti], z[parti], phi=phi[parti]) / R[parti]
+                accel_z[parti] = galpy.potential.evaluatezforces(galpypot, R[parti], z[parti], phi=phi[parti])
             else:
-                accel_R = galpy.potential.evaluateRforces(galpypot, R, z, phi=phi, t=time)
+                accel_R[parti] = galpy.potential.evaluateRforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time)
                 # See above.
-                accel_phi = galpy.potential.evaluatephiforces(galpypot, R, z, phi=phi, t=time) / R
-                accel_z = galpy.potential.evaluatezforces(galpypot, R, z, phi=phi, t=time)
-                ax_i, ay_i, az_i = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
+                accel_phi[parti] = galpy.potential.evaluatephiforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time) / R[parti]
+                accel_z[parti] = galpy.potential.evaluatezforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time)
 
-            accel[parti,:] = ax_i, ay_i, az_i
+        ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
+        accel = np.vstack((ax,ay,az)).T
         
         return accel
         
 
 
-    def add_external_force(self, fn, args):
+    def add_external_force(self, fn, args=None):
         """Add a function that will return the force at a given position,
          which will be added as an external force to the simulation on top
          of the N-body force.
@@ -387,7 +388,7 @@ class Simulation(object):
 
 
 
-    def add_external_timedependent_force(self, fn, args):
+    def add_external_timedependent_force(self, fn, args=None):
         """Add a function that will return the force at a given position and time,
          which will be added as an external force to the simulation on top
          of the N-body force.
