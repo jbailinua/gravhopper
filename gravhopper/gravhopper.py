@@ -515,7 +515,7 @@ class Simulation(object):
                 pyn_vel_unit)
             sim['mass'] = pyn.array.SimArray(self.snap(timestep)['mass'].to(ap_mass_unit).value, \
                 pyn_mass_unit)
-            sim['eps'] = pyn.array(SimArray(self.params['eps'].to(ap_pos_unit).value, pyn_pos_unit)
+            sim['eps'] = pyn.array.SimArray(self.params['eps'].to(ap_pos_unit).value, pyn_pos_unit)
             
             return sim
         else:
