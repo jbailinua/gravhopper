@@ -648,14 +648,21 @@ class Simulation(object):
         Parameters:
             fname:      Movie output file name. Required.
             fps:        Frames per second. Default: 25.
+            ax:         Matplotlib Axes to plot on. If None (default), creates a new
+                        figure and a new axis on that figure using add_subplot(111, aspect=1.0)
+                        and closes the figure at the end.
             
         All other parameters are passed through to plot_particles().
         """
         
         # Create axis if necessary.
         if ax is None:
-            ax = plt.subplot(111, aspect=1.0)
-        fig = ax.get_figure()
+            fig = plt.figure()
+            ax = fig.add_subplot(111, aspect=1.0)
+            close_plot = True
+        else:
+            fig = ax.get_figure()
+            close_plot = False
             
         # Initial frame
         particles = self.plot_particles(*args, ax=ax, snap='IC', **kwargs)
@@ -671,6 +678,9 @@ class Simulation(object):
         
         anim = FuncAnimation(fig, animate, frames=self.timestep+1, interval=ms_per_frame)
         anim.save(fname)
+        
+        if close_plot:
+            plt.close(fig)
 
 
 
