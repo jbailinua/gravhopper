@@ -642,7 +642,7 @@ class Simulation(object):
         return output
 
 
-    def movie_particles(self, fname, fps=25, ax=None, *args, **kwargs):
+    def movie_particles(self, fname, fps=25, ax=None, skip=None, *args, **kwargs):
         """Create a movie of the particles. Uses the plot_particles() function.
         
         Parameters:
@@ -651,6 +651,7 @@ class Simulation(object):
             ax:         Matplotlib Axes to plot on. If None (default), creates a new
                         figure and a new axis on that figure using add_subplot(111, aspect=1.0)
                         and closes the figure at the end.
+            skip:       Skip every N frames.
             
         All other parameters are passed through to plot_particles().
         """
@@ -664,19 +665,25 @@ class Simulation(object):
             fig = ax.get_figure()
             close_plot = False
             
+        # If skip is None, equivalent to 1
+        if skip is None:
+            skip = 1
+            
         # Initial frame
         particles = self.plot_particles(*args, ax=ax, snap='IC', **kwargs)
         
         # Function that updates each frame
         def animate(frame):
+            framesnap = frame * skip
+            
             fig.clf()
             # Update particle positions
-            particles = self.plot_particles(*args, ax=None, snap=frame, **kwargs)
+            particles = self.plot_particles(*args, ax=None, snap=framesnap, **kwargs)
             return particles
             
         ms_per_frame = 1000 / fps
         
-        anim = FuncAnimation(fig, animate, frames=self.timestep+1, interval=ms_per_frame)
+        anim = FuncAnimation(fig, animate, frames=(self.timestep+1) // skip, interval=ms_per_frame)
         anim.save(fname)
         
         if close_plot:
