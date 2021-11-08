@@ -50,6 +50,8 @@ and plot the particle positions before and after to show that it is in equilibri
     sim.plot_particles(snap='IC', unit=u.pc, xlim=[-10,10], ylim=[-10,10], ax=ax1)
     sim.plot_particles(snap='final', unit=u.pc, xlim=[-10,10], ylim=[-10,10], ax=ax2)
     
+To make a movie of the whole evolution of the simulation:
+    
     # Make and save a movie of the simulation running
     sim.movie_particles('Plummer_sim.mp4', unit=u.pc, xlim=[-10,10], ylim=[-10,10])
 
