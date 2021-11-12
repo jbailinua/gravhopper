@@ -900,6 +900,7 @@ class IC(object):
             totmass: total mass (astropy Quantity)
             a: scale radius (astropy Quantity)
             N: number of particles
+            cutoff: don't include particles more than cutoff times the scale radius. Default: 10
             center_pos: Force center of mass of simulation to here. Quantity array of size 3. Optional.
             center_vel: Force center of mass velocity of simulation to this. Quantity array
                 of size 3. Optional.
@@ -916,10 +917,13 @@ class IC(object):
          
         rng = np.random.default_rng(seed)
      
-        # Based on equation 10 from Hernquist 1990, I get r/a = (xi + sqrt(xi))/(1-xi).
+        # Based on equation 10 from Hernquist 1990, I get r/a = 1/(xi^(-1/2) - 1)
+        # and xi = r^2 / (1 + r)^2     where r means r/a
         # get positions
-        rad_xi = rng.uniform(0.0, 1.0, size=N)
-        r_over_a = (rad_xi + np.sqrt(rad_xi))/(1. - rad_xi)
+        # turn cutoff into max xi
+        xi_cutoff = cutoff**2 / ((1. + cutoff)**2)
+        rad_xi = rng.uniform(0.0, xi_cutoff, size=N)
+        r_over_a = 1./(1./np.sqrt(rad_xi) - 1.)
         radius = r_over_a * a
         costheta = rng.uniform(-1.0, 1.0, size=N)
         phi = rng.uniform(0.0, 2.*np.pi, size=N)

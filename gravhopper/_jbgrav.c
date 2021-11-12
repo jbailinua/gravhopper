@@ -4,7 +4,6 @@
 #include "_jbgrav.h"
 
 
-
 /* interface based heavily on Dan Foreman-Mackey's example */
 
 static char module_docstring[] =
@@ -131,7 +130,6 @@ PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int
 	double dpos2, dpos2_plus_eps2;
 	double diff,diff2,eps2;
 	double *forceelement;
-	double forcek;
 	int i,j,k;
 
 	dpos = malloc(sizeof(double) * np * np * 3);
@@ -168,7 +166,7 @@ PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int
 			    if (i==j) continue;  /* no self force */
 
 				(*forceelement) += *(double*)PyArray_GETPTR1(mass,j) *
-					dpos[i*np*3 + j*3 + k] * invdpos3[i*np + j];					
+					dpos[i*np*3 + j*3 + k] * invdpos3[i*np + j];
 			}
 		}
 	}
