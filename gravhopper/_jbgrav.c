@@ -137,7 +137,7 @@ PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int
 	if((dpos==NULL) || (invdpos3==NULL)) return NULL;
 
 	eps2 = eps*eps;
-
+	
 	/* loop through arrays calculating the dpos array */
 	for (i=0; i<np; i++) {
 		for(j=i+1; j<np; j++) {
@@ -153,6 +153,7 @@ PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int
 			invdpos3[i*np + j] = 1.0 / dpos2_plus_eps2 / sqrt(dpos2_plus_eps2); 
 			/* based on my tests, this is twice as fast as pow(x, -1.5) */
 			invdpos3[j*np + i] = invdpos3[i*np + j];
+			
 		}
 	}
 
@@ -162,6 +163,8 @@ PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int
 			forceelement = (double*) PyArray_GETPTR2(forcearray, i, k);
 			*forceelement = 0.0;
 			for(j=0; j<np; j++) {
+			    if (i==j) continue;  /* no self force */
+
 				(*forceelement) += *(double*)PyArray_GETPTR1(mass,j) *
 					dpos[i*np*3 + j*3 + k] * invdpos3[i*np + j];
 			}
