@@ -893,7 +893,7 @@ class IC(object):
 
 
     @staticmethod
-    def Hernquist(N=None, a=None, totmass=None, center_pos=None, center_vel=None, force_origin=True, seed=None):
+    def Hernquist(N=None, a=None, totmass=None, cutoff=10., center_pos=None, center_vel=None, force_origin=True, seed=None):
         """Returns the positions, velocities, and masses for particles that
         form an isotropic Hernquist model (Hernquist 1990).
         The parameters are:
