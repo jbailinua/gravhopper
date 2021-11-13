@@ -364,7 +364,7 @@ class Simulation(object):
         # Galpy works exclusively in cylindrical coordinate frame, so we need to
         # convert there and back again, a vector's tale.
         R, phi, z = galpy.util.coords.rect_to_cyl(pos[:,0], pos[:,1], pos[:,2])
-        vR, vphi, vz = galpy.util.coords.rect_to_cyl_vec(vel[:,0], vel[:,1], vel[:,2])
+        vR, vphi, vz = galpy.util.coords.rect_to_cyl_vec(vel[:,0], vel[:,1], vel[:,2], pos[:,0], pos[:,1], pos[:,2])
         
         # Some galpy potentials work on arrays of coordinates, but not all. For
         # potentials where it doesn't, loop through each position (note: much slower,
@@ -565,7 +565,7 @@ class Simulation(object):
            #    args['t0']:  timescale (should have time units)
            velmag = np.sqrt(np.sum(vel**2, axis=1))
            forcemag = velmag / args['t0']
-           forcearray = -vel/velmag * forcemag
+           forcearray = -vel/velmag[:,np.newaxis] * forcemag[:,np.newaxis]
            return forcearray
            
          Then to add a force that slows all particles down on a 100 Myr timescale,
