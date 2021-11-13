@@ -781,8 +781,8 @@ class Simulation(object):
         else:
             raise ValueError("data_parm must be 'pos' or 'vel'")
             
-        xdat = data[snapnum, self._plot_parms['particle_range'][0]:self._plot_parms['particle_range'][1], self._plot_parms['xindex'].to(self._plot_parms['unit']).value]
-        ydat = data[snapnum, self._plot_parms['particle_range'][0]:self._plot_parms['particle_range'][1], self._plot_parms['yindex'].to(self._plot_parms['unit']).value]
+        xdat = data[snapnum, self._plot_parms['particle_range'][0]:self._plot_parms['particle_range'][1], self._plot_parms['xindex']].to(self._plot_parms['unit']).value
+        ydat = data[snapnum, self._plot_parms['particle_range'][0]:self._plot_parms['particle_range'][1], self._plot_parms['yindex']].to(self._plot_parms['unit']).value
                             
         scatterplot.set_offsets(np.c_[xdat, ydat])
         
