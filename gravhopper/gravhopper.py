@@ -583,7 +583,7 @@ class Simulation(object):
         
         if USE_GALPY:
             # Check if it's a galpy velocity-dependent potential
-            if isinstance(fn, galpy.potential.DissipativeForce):
+            if isinstance(fn, galpy.potential.DissipativeForce.DissipativeForce):
                 galpy_fn = lambda x, v, a: self.galpy_dissipativeforce_wrapper(fn, x, vel=v)
                 self.extra_velocitydependent_force_functions.append( (galpy_fn, args) )
                 return
