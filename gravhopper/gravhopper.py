@@ -95,6 +95,7 @@ class Simulation(object):
         self.times = None
         self.extra_force_functions = []
         self.extra_timedependent_force_functions = []
+        self.extra_velocitydependent_force_functions = []
         # Things can come in in various units, but use these internally
         self.lenunit = u.kpc
         self.velunit = u.km/u.s
@@ -260,12 +261,16 @@ class Simulation(object):
         else:
             nbody_gravity = np.zeros((self.Np, 3)) * self.accelunit
             
-        # any extra forces that have been added
-        extra_accel = self.calculate_extra_acceleration(self.current_snap()['pos'], nbody_gravity, time)
+        # any extra forces that have been added. Note that accelerations are computed
+        # before the kick, so we need to use the previous snap's velocity in case there
+        # are velocity-dependent forces
+        extra_accel = self.calculate_extra_acceleration(self.current_snap()['pos'], nbody_gravity, \
+            time=time, vel=self.prev_snap()['vel'])
         totaccel = nbody_gravity + extra_accel
+        
         return totaccel
         
-    def calculate_extra_acceleration(self, pos, template_array, time=None):
+    def calculate_extra_acceleration(self, pos, template_array, time=None, vel=None):
         """Calculates the acceleration just due to external added forces."""
         extaccel = np.zeros_like(template_array)
         for fn, args in self.extra_force_functions:
@@ -273,6 +278,9 @@ class Simulation(object):
         # and the time-dependent extra forces
         for fn, args in self.extra_timedependent_force_functions:
             extaccel += fn(pos, time, args)
+        # and the velocity-dependent extra forces
+        for fn, args in self.extra_velocitydependent_force_functions:
+            extaccel += fn(pos, vel, args)
         return extaccel
 
 
@@ -349,6 +357,61 @@ class Simulation(object):
         
         return accel
         
+
+    def galpy_dissipativeforce_wrapper(self, galpypot, pos, vel=None):
+        """Wrapper to calculate acceleration from a galpy DissipativeForce object."""
+
+        # Galpy works exclusively in cylindrical coordinate frame, so we need to
+        # convert there and back again, a vector's tale.
+        R, phi, z = galpy.util.coords.rect_to_cyl(pos[:,0], pos[:,1], pos[:,2])
+        vR, vphi, vz = galpy.util.coords.rect_to_cyl_vec(vel[:,0], vel[:,1], vel[:,2], pos[:,0], pos[:,1], pos[:,2])
+        
+        # Some galpy potentials work on arrays of coordinates, but not all. For
+        # potentials where it doesn't, loop through each position (note: much slower,
+        # so only do those where I know it doesn't work).
+        single_potentials = [galpy.potential.ChandrasekharDynamicalFrictionForce]
+        if any([isinstance(galpypot, s) for s in single_potentials]):
+            # Do them one by one
+            if(len(pos.shape)) > 1:
+                Npos = pos.shape[0]
+            else:
+                Npos = 1
+            
+            accel_R = np.zeros((Npos)) * self.accelunit
+            accel_phi = np.zeros((Npos)) * self.accelunit
+            accel_z = np.zeros((Npos)) * self.accelunit
+        
+            for parti in range(Npos):
+                veli = [vR[parti], vphi[parti], vz[parti]]
+                accel_R[parti] = galpy.potential.evaluateRforces(galpypot, R[parti], z[parti], phi=phi[parti], v=veli)
+                # You might think that a function called evaluatephiforces would return
+                # the forces in the phi direction. You would be wrong.
+                # It actually returns dPhi/dphi, which is R times the actual phi force.
+                # So we need to divide by R to get a physical force that we can transform
+                # as a vector.
+                accel_phi[parti] = galpy.potential.evaluatephiforces(galpypot, R[parti], z[parti], phi=phi[parti], v=veli) / R[parti]
+                accel_z[parti] = galpy.potential.evaluatezforces(galpypot, R[parti], z[parti], phi=phi[parti], v=veli)
+
+            ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
+            
+        else:
+            # Do it vectorized
+            vel_cyl = np.vstack((vR, vphi, vz))
+            
+            accel_R = galpy.potential.evaluateRforces(galpypot, R, z, phi=phi, v=vel_cyl)
+            # You might think that a function called evaluatephiforces would return
+            # the forces in the phi direction. You would be wrong.
+            # It actually returns dPhi/dphi, which is R times the actual phi force.
+            # So we need to divide by R to get a physical force that we can transform
+            # as a vector.
+            accel_phi = galpy.potential.evaluatephiforces(galpypot, R, z, phi=phi, v=vel_cyl) / R
+            accel_z = galpy.potential.evaluatezforces(galpypot, R, z, phi=phi, v=vel_cyl)
+            ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
+            
+        accel = np.vstack((ax,ay,az)).T
+        
+        return accel
+
 
 
     def add_external_force(self, fn, args=None):
@@ -461,14 +524,14 @@ class Simulation(object):
         if USE_GALA:
             # Check if it's a gala potential
             if isinstance(fn, gala.potential.PotentialBase):
-                gala_fn = lambda x, t, a: self.gala_potential.wrapper(fn, x, time=t)
+                gala_fn = lambda x, t, a: self.gala_potential_wrapper(fn, x, time=t)
                 self.extra_timedependent_force_functions.append( (gala_fn, args) )
                 return
                 
         if USE_GALPY:
             # Check if it's a galpy potential
             if isinstance(fn, galpy.potential.Potential):
-                galpy_fn = lambda x, t, a: self.galpy_potential.wrapper(fn, x, time=t)
+                galpy_fn = lambda x, t, a: self.galpy_potential_wrapper(fn, x, time=t)
                 self.extra_timedependent_force_functions.append( (galpy_fn, args) )
                 return
 
@@ -476,6 +539,57 @@ class Simulation(object):
         self.extra_timedependent_force_functions.append( (fn,args) )
 
 
+    def add_external_velocitydependent_force(self, fn, args=None):
+        """Add a function that will return the force at a given position and velocity,
+         which will be added as an external force to the simulation on top
+         of the N-body force.
+         
+         Options are:
+           1. A function that takes three arguments: an (Np,3) array of positions
+                (must be Quantities) that contains the positions where the accelerations
+                are to be calculated, an (Np,3) array of velocities (must be Quantities),
+                and an additional argument that is a dictionary containing any extra
+                parameters you need.
+                
+           2. A galpy potential object (must derive from galpy.potential.DissipativeForce).
+
+         You may add as many external forces as you want - they will be summed
+         together along with the N-body force.
+        
+         For example, here is a function that would add on an external force
+         that goes in the opposite directly of the current velocity of every particle
+         with magnitude |velocity| / timescale given in args:
+         
+         def my_friction_force(pos, vel, args):
+           # args has 1 parameter:
+           #    args['t0']:  timescale (should have time units)
+           velmag = np.sqrt(np.sum(vel**2, axis=1))
+           forcemag = velmag / args['t0']
+           forcearray = -vel/velmag[:,np.newaxis] * forcemag[:,np.newaxis]
+           return forcearray
+           
+         Then to add a force that slows all particles down on a 100 Myr timescale,
+         you would do the following:
+         
+         mysimulation = Simulation()
+         mysimulation.add_external_velocitydependent_force(my_friction_force, {'t0':100*u.Myr})                
+        """
+
+        if isinstance(fn, list):
+            # Probably a galpy combined potential. Add each one individually.
+            for item in fn:
+                self.add_external_velocitydependent_force(item, args)
+            return
+        
+        if USE_GALPY:
+            # Check if it's a galpy velocity-dependent potential
+            if isinstance(fn, galpy.potential.DissipativeForce.DissipativeForce):
+                galpy_fn = lambda x, v, a: self.galpy_dissipativeforce_wrapper(fn, x, vel=v)
+                self.extra_velocitydependent_force_functions.append( (galpy_fn, args) )
+                return
+
+        # If it hasn't returned before now, it's presumably just a function
+        self.extra_velocitydependent_force_functions.append( (fn,args) )
 
 
     def nrows(self, array):
