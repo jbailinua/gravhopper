@@ -279,7 +279,7 @@ class Simulation(object):
         for fn, args in self.extra_timedependent_force_functions:
             extaccel += fn(pos, time, args)
         # and the velocity-dependent extra forces
-        for fn, args in self.extra_velocitydependent_force_fuctions:
+        for fn, args in self.extra_velocitydependent_force_functions:
             extaccel += fn(pos, vel, args)
         return extaccel
 
