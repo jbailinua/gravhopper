@@ -770,7 +770,7 @@ class Simulation(object):
 
         
         
-    def plot_particles_setoffsets(scatterplot, snapnum):
+    def plot_particles_setoffsets(self, scatterplot, snapnum):
         """Update a previously-made plot_particles() with a new snapshot number."""
         
         # Get the things that will be plotted
