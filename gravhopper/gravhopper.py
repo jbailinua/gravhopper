@@ -524,14 +524,14 @@ class Simulation(object):
         if USE_GALA:
             # Check if it's a gala potential
             if isinstance(fn, gala.potential.PotentialBase):
-                gala_fn = lambda x, t, a: self.gala_potential.wrapper(fn, x, time=t)
+                gala_fn = lambda x, t, a: self.gala_potential_wrapper(fn, x, time=t)
                 self.extra_timedependent_force_functions.append( (gala_fn, args) )
                 return
                 
         if USE_GALPY:
             # Check if it's a galpy potential
             if isinstance(fn, galpy.potential.Potential):
-                galpy_fn = lambda x, t, a: self.galpy_potential.wrapper(fn, x, time=t)
+                galpy_fn = lambda x, t, a: self.galpy_potential_wrapper(fn, x, time=t)
                 self.extra_timedependent_force_functions.append( (galpy_fn, args) )
                 return
 
@@ -584,7 +584,7 @@ class Simulation(object):
         if USE_GALPY:
             # Check if it's a galpy velocity-dependent potential
             if isinstance(fn, galpy.potential.DissipativeForce):
-                galpy_fn = lambda x, v, a: self.galpy_dissipativeforce.wrapper(fn, x, vel=v)
+                galpy_fn = lambda x, v, a: self.galpy_dissipativeforce_wrapper(fn, x, vel=v)
                 self.extra_velocitydependent_force_functions.append( (galpy_fn, args) )
                 return
 
