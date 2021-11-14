@@ -764,13 +764,14 @@ class Simulation(object):
             ax.set_xlabel('${0}$ ({1})'.format(xlabel, str(unit)))
             ax.set_ylabel('${0}$ ({1})'.format(ylabel, str(unit)))
         self.plot_particles_settitle(ax, snapnum, timeformat)
-                        
+                                
         return output
+        
 
-    set plot_particles_settitle(self, ax, snapnum, timeformat=False):
+    def plot_particles_settitle(self, ax, snapnum, timeformat=False):
         """Utility routine to set title of axis to the time of snapnum using the given format."""
         if timeformat != False:
-            ax.set_title(timeformat.format(self.times[snapmnum]))
+            ax.set_title(timeformat.format(self.times[snapnum]))
             
         
     def plot_particles_setoffsets(self, scatterplot, snapnum):
@@ -793,7 +794,7 @@ class Simulation(object):
         
         
     
-    def movie_particles(self, fname, fps=25, ax=None, skip=None, timeformat=False, *args, **kwargs):
+    def movie_particles(self, fname, fps=25, ax=None, skip=None, timeformat='{0:.1f}', *args, **kwargs):
         """Create a movie of the particles. Uses the plot_particles() function.
         
         Parameters:
