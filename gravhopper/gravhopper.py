@@ -823,7 +823,7 @@ class Simulation(object):
         # Function that updates each frame
         def animate(frame):
             framesnap = frame * skip
-            self.plot_particles_setoffsets(ax, framesnap)
+            self.plot_particles_setoffsets(particles, framesnap)
             return particles
             
         ms_per_frame = 1000 / fps
