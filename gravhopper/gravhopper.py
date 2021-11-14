@@ -763,12 +763,15 @@ class Simulation(object):
             
             ax.set_xlabel('${0}$ ({1})'.format(xlabel, str(unit)))
             ax.set_ylabel('${0}$ ({1})'.format(ylabel, str(unit)))
-        if timeformat != False:
-            ax.set_title(timeformat.format(self.times[snapnum]))
+        self.plot_particles_settitle(ax, snapnum, timeformat)
                         
         return output
 
-        
+    set plot_particles_settitle(self, ax, snapnum, timeformat=False):
+        """Utility routine to set title of axis to the time of snapnum using the given format."""
+        if timeformat != False:
+            ax.set_title(timeformat.format(self.times[snapmnum]))
+            
         
     def plot_particles_setoffsets(self, scatterplot, snapnum):
         """Update a previously-made plot_particles() with a new snapshot number."""
@@ -790,7 +793,7 @@ class Simulation(object):
         
         
     
-    def movie_particles(self, fname, fps=25, ax=None, skip=None, *args, **kwargs):
+    def movie_particles(self, fname, fps=25, ax=None, skip=None, timeformat=False, *args, **kwargs):
         """Create a movie of the particles. Uses the plot_particles() function.
         
         Parameters:
@@ -818,12 +821,13 @@ class Simulation(object):
             skip = 1
             
         # Initial frame
-        particles = self.plot_particles(*args, ax=ax, snap='IC', **kwargs)
+        particles = self.plot_particles(*args, ax=ax, snap='IC', timeformat=timeformat, **kwargs)
         
         # Function that updates each frame
         def animate(frame):
             framesnap = frame * skip
             self.plot_particles_setoffsets(particles, framesnap)
+            self.plot_particles_settitle(ax, framesnap, timeformat)
             return particles
             
         ms_per_frame = 1000 / fps
