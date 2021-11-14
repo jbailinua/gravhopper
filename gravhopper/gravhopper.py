@@ -108,6 +108,9 @@ class Simulation(object):
         self.set_dt(dt)
         self.set_eps(eps)
         self.set_algorithm(algorithm)
+        # Useful information to have stored while in the middle of generating a movie
+        # so we don't need to keep figuring out what we're plotting
+        self._plot_parms = None
 
       
     def set_dt(self, dt):
@@ -741,6 +744,10 @@ class Simulation(object):
         output = ax.scatter(data[snapnum, particle_range[0]:particle_range[1] ,xindex].to(unit).value,\
             data[snapnum, particle_range[0]:particle_range[1], yindex].to(unit).value, s=s, **kwargs)
             
+        # Store things we'll need for following frames if making a movie
+        self._plot_parms = {'data_parm':parm, 'particle_range':particle_range, 'xindex':xindex, \
+            'yindex':yindex, 'unit':unit}
+            
         # Set ranges, axis labels, and title
         if xlim is not None:
             ax.set_xlim(xlim)
@@ -753,16 +760,41 @@ class Simulation(object):
             elif parm=='vel':
                 xlabel = 'v_'+coords[0]
                 ylabel = 'v_'+coords[1]
-                
+            
             ax.set_xlabel('${0}$ ({1})'.format(xlabel, str(unit)))
             ax.set_ylabel('${0}$ ({1})'.format(ylabel, str(unit)))
+        self.plot_particles_settitle(ax, snapnum, timeformat)
+                                
+        return output
+        
+
+    def plot_particles_settitle(self, ax, snapnum, timeformat=False):
+        """Utility routine to set title of axis to the time of snapnum using the given format."""
         if timeformat != False:
             ax.set_title(timeformat.format(self.times[snapnum]))
             
-        return output
-
-
-    def movie_particles(self, fname, fps=25, ax=None, skip=None, *args, **kwargs):
+        
+    def plot_particles_setoffsets(self, scatterplot, snapnum):
+        """Update a previously-made plot_particles() with a new snapshot number."""
+        
+        # Get the things that will be plotted
+        if self._plot_parms['data_parm']=='pos':
+            data = self.positions
+        elif self._plot_parms['data_parm']=='vel':
+            data = self.velocities
+        else:
+            raise ValueError("data_parm must be 'pos' or 'vel'")
+            
+        xdat = data[snapnum, self._plot_parms['particle_range'][0]:self._plot_parms['particle_range'][1], self._plot_parms['xindex']].to(self._plot_parms['unit']).value
+        ydat = data[snapnum, self._plot_parms['particle_range'][0]:self._plot_parms['particle_range'][1], self._plot_parms['yindex']].to(self._plot_parms['unit']).value
+                            
+        scatterplot.set_offsets(np.c_[xdat, ydat])
+        
+        return
+        
+        
+    
+    def movie_particles(self, fname, fps=25, ax=None, skip=None, timeformat='{0:.1f}', *args, **kwargs):
         """Create a movie of the particles. Uses the plot_particles() function.
         
         Parameters:
@@ -790,15 +822,13 @@ class Simulation(object):
             skip = 1
             
         # Initial frame
-        particles = self.plot_particles(*args, ax=ax, snap='IC', **kwargs)
+        particles = self.plot_particles(*args, ax=ax, snap='IC', timeformat=timeformat, **kwargs)
         
         # Function that updates each frame
         def animate(frame):
             framesnap = frame * skip
-            
-            fig.clf()
-            # Update particle positions
-            particles = self.plot_particles(*args, ax=None, snap=framesnap, **kwargs)
+            self.plot_particles_setoffsets(particles, framesnap)
+            self.plot_particles_settitle(ax, framesnap, timeformat)
             return particles
             
         ms_per_frame = 1000 / fps
