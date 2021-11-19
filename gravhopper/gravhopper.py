@@ -1,13 +1,26 @@
 #!/usr/bin/py
 
-# GravHopper
+"""
+GravHopper
+==========
 
-# This is a very simple gravitational N-body simulator.
-# Can take advantage of galpy or gala potentials, and pynbody
-# snapshot outputs.
+A package for performing N-body simulations in Python, named in honor of Grace Hopper.
 
-# Written by Jeremy Bailin, University of Alabama
-# First initial last name at ua dot edu
+Written by Jeremy Bailin, University of Alabama
+First initial last name at ua dot edu
+
+Contains the following classes:
+
+Simulation : Main class for creating and performing an N-body simulation.
+
+IC : Static functions for generating a variety of useful initial conditions for
+N-body simulations.
+
+grav : Module containing the functions that calculate the N-body forces.
+
+GravHopperException : Exceptions raised within GravHopper
+"""
+
 
 from . import jbgrav
 import numpy as np
@@ -67,22 +80,89 @@ class ExternalPackageException(GravHopperException):
 
 
 class Simulation(object):
-    """Main class for N-body simulation."""
+    """Main class for N-body simulation.
+    
+    Attributes
+    ----------
+    Np : int
+        Number of particles
+    Nsnap : int
+        Number of snapshots
+    positions : Quantity array of dimension (Nsnap,Np,3)
+        numpy array of the positions of each particle at each snapshot
+    velocities : Quantity array of dimension (Nsnap,Np,3)
+        numpy array of the velocities of each particle at each snapshot
+    masses : Quantity array of length Np
+        numpy array of the masses of each particle
+    times : Quantity array of length Nsnap
+        numpy array of the time of each snapshot
+    lenunit : Unit
+        Default internal length unit
+    velunit : Unit
+        Default internal velocity unit
+    accelunit : Unit
+        Default internal acceleration unit
+    
+    Methods
+    -------
+    add_IC(newIC)
+        Adds one or more particles to the initial conditions of the simulation
+    add_external_force(fn, args=None)
+        Add an external force function to the simulation
+    add_external_timedependent_force(fn, args=None)
+        Add an external time-depdendent force function to the simulation
+    add_external_velocitydependent_force(fn, args=None)
+        Add an external velocity-dependent force function to the simulation
+    run(N=1)
+        Runs the simulation for N time steps, from the initial conditions if it hasn't
+        yet been run, or continuing from the last snapshot otherwise
+    pyn_snap(timestep=None)
+        Returns a pynbody snapshot object containing the last or a specific snapshot of the simulation
+    plot_particles(parm='pos', coords='xy', snap='final', xlim=None, ylim=None, s=0.2, unit=None, ax=None, timeformat='{0:.1f}', nolabels=False, particle_range=None)
+        Plots a 2D scatterplot of either the particle positions or velocities at a given snapshot
+    movie_particles(fname, fps=25, ax=None, skip=None, timeformat='{0:.1f}')
+        Makes a movie of the simulation    
+    set_dt(dt)
+        Sets simulation time step
+    get_dt()
+        Returns simulation time step
+    set_eps(eps)
+        Sets simulation softening length
+    get_eps()
+        Returns simulation softening length
+    set_algorithm(algorithm)
+        Sets simulation gravity algorithm
+    get_algorithm
+        Returns simulation gravity algorithm
+    reset()
+        Resets a simulation so that it can be run again
+    snap(step)
+        Returns a single snapshot
+    current_snap()
+        Returns the last snapshot that was performed
+    prev_snap()
+        Returns the second-to-last snapshot that was performed
+    calculate_acceleration(time=None)
+        Calculates the acceleration on all particles at current_snap()
+    """
     
     def __init__(self, dt=1*u.Myr, eps=100*u.pc, algorithm='tree'):
-        """Initializes class variables, including defaults.
+        """Initializes Simulation object.
+        
+        Parameters
+        ----------
+        dt : Quantity
+            Time step length. Default: 1 Myr
+        eps : Quantity
+            Gravitational softening length. Default: 100 pc
+        algorithm : str ('tree' or 'direct')
+            Gravitational force calculation algorithm. Default: 'tree'
 
-           Parameters that can be overridden:
-            dt: Time step (Astropy Quantity. Default: 1 Myr).
-            eps: Gravitational softening length (Astropy Quantity: 100 pc).
-            algorithm: N-body force calculation algorithm (default: 'tree').
-                         Other options: 'direct'
-
-           Example, to create a new simulation with a timestep of 1 year:
-           sim = Simulation(dt=1.0*u.yr)"""
+        For example, to create a new simulation with a timestep of 1 year:
+        sim = Simulation(dt=1.0*u.yr)
+        """
 
         self.ICarrays = False
-        self.IC = False
         self.Np = 0
         self.Nsnap = 0
         self.timestep = 0
@@ -114,7 +194,19 @@ class Simulation(object):
 
       
     def set_dt(self, dt):
-        """Sets the simulation time step. Should be Astropy Quantity of dimension time."""
+        """Sets the simulation time step.
+        
+        Parameters
+        ----------
+        dt : Quantity with dimensions of time
+            Time step length
+            
+        Raises
+        ------
+        ValueError
+            If dt does not have dimensions of time.
+        """
+
         try:
             # Make sure that it has dimensions of time
             _ = dt.to(u.Myr)
@@ -123,15 +215,34 @@ class Simulation(object):
             
         self.params['dt'] = dt
         return
+
         
     def get_dt(self):
-        """Returns simulation time step."""
+        """Returns simulation time step.
+        
+        Returns
+        -------
+        dt : Quantity
+            Time step length
+        """
         return self.params['dt']
         
         
         
     def set_eps(self, eps):
-        """Sets the simulation gravitational softening length. Should be Astropy Quantity of dimension length."""
+        """Sets the simulation gravitational softening length.
+        
+        Parameters
+        ----------
+        eps : Quantity with dimensions of length
+            Gravitational softening length
+            
+        Raises
+        ------
+        ValueError
+            If eps does not have dimensions of length.
+        """
+
         try:
             # Make sure that it has dimensions of length
             _ = eps.to(u.kpc)
@@ -140,28 +251,60 @@ class Simulation(object):
             
         self.params['eps'] = eps
         return
+
         
     def get_eps(self):
-        """Returns simulation gravitational softening length."""
+        """Returns simulation gravitational softening length.
+        
+        Returns
+        -------
+        eps : Quantity
+            Gravitational softening length
+        """
         return self.params['eps']
         
         
     def set_algorithm(self, algorithm):
-        """Sets the gravitational algorithm for the simulation. Should be 'tree' or 'direct'."""
+        """Sets the simulation gravitational force algorithm.
+        
+        Parameters
+        ----------
+        algorithm : str ('tree' or 'direct')
+            Direct summation or Barnes-Hut tree algorithm
+            
+        Raises
+        ------
+        ValueError
+            If algorithm is not 'tree' or 'direct'.
+        """
+        
         if algorithm in ('tree', 'direct'):
             self.params['algorithm'] = algorithm
         else:
             raise ValueError("algorithm must be 'tree' or 'direct'.")
         return
+
         
     def get_algorithm(self):
-        """Returns simulation gravitational algorithm."""
+        """Returns simulation gravitational algorithm.
+        
+        Returns
+        -------
+        algorithm : str
+            'direct' for direct summation, 'tree' for Barnes-Hut tree
+        """
         return self.params['algorithm']
         
         
     def run(self, N=1):
         """Run N timesteps of the simulation. Will either initialize a simulation that has
-        not yet been run, or add onto the end of an already-run simulation."""
+        not yet been run, continue from the last snapshot if it has.
+        
+        Parameters
+        ----------
+        N : int
+            Number of time steps to perform
+        """
         
         # Initialize if first timestep, expand arrays for output if not
         if self.running==False:
@@ -222,17 +365,48 @@ class Simulation(object):
         
 
     def snap(self, step):
-        """Return the given snapshot as a dict with entries 'pos', 'vel', and 'mass'."""
+        """Return the given snapshot.
+        
+        Parameters
+        ----------
+        step : int
+            Time step to return
+            
+        Returns
+        -------
+        snap : dict
+            snap['pos'] is an (Np,3) array of positions
+            snap['vel'] is an (Np,3) array of velocities
+            snap['mass'] is a length-Np array of masses
+        """
         return {'pos':self.positions[step, :, :], 'vel':self.velocities[step, :, :], \
             'mass':self.masses[:]}
+
                 
     def current_snap(self):
-        """Return the current snapshot as a dict with entries 'pos', 'vel', and 'mass'."""
+        """Return the current snapshot.
+        
+        Returns
+        -------
+        snap : dict
+            snap['pos'] is an (Np,3) array of positions
+            snap['vel'] is an (Np,3) array of velocities
+            snap['mass'] is a length-Np array of masses
+        """        
         return self.snap(self.timestep)
             
     def prev_snap(self):
-        """Return the snapshot before the current snapshot as a dict with entries 'pos', 'vel', and 'mass'."""
+        """Return the snapshot before the current snapshot.
+        
+        Returns
+        -------
+        snap : dict
+            snap['pos'] is an (Np,3) array of positions
+            snap['vel'] is an (Np,3) array of velocities
+            snap['mass'] is a length-Np array of masses
+        """        
         return self.snap(self.timestep-1)
+
 
     def perform_timestep(self):
         """Advance the N-body simulation by one snapshot using a DKD leapfrog integrator."""
@@ -250,7 +424,24 @@ class Simulation(object):
         
     def calculate_acceleration(self, time=None):
         """Calculate acceleration due to gravitational N-body force, plus any external
-         forces that have been added."""
+        forces that have been added.
+         
+        Parameters
+        ----------
+        time : Quantity
+            Time at which to calculate any time-dependent external forces. Default: None
+            
+        Returns
+        -------
+        acceleration : array
+            An (Np,3) numpy array of the acceleration vector calculated for each aprticle
+         
+        Raises
+        ------
+        UnknownAlgorithmException
+            If the algorithm parameter is not 'tree' or 'direct'
+        """
+        
         # gravity
         # If there is only one particle, there is no force, and the C code will give
         # a divide by zero... so just force a zero.
@@ -272,6 +463,7 @@ class Simulation(object):
         totaccel = nbody_gravity + extra_accel
         
         return totaccel
+        
         
     def calculate_extra_acceleration(self, pos, template_array, time=None, vel=None):
         """Calculates the acceleration just due to external added forces."""
@@ -419,38 +611,45 @@ class Simulation(object):
 
     def add_external_force(self, fn, args=None):
         """Add a function that will return the force at a given position,
-         which will be added as an external force to the simulation on top
-         of the N-body force.
-         
-         Options are:
-           1. A function that takes two arguments: an (Np,3) array of positions
-                (must be Quantities) that contains the positions where the accelerations
-                are to be calculated, and an additional argument that is a dictionary
-                containing any extra parameters you need.
-                
-           2. A galpy potential object.
-           
-           3. A gala Potential object.
+        which will be added as an external force to the simulation on top
+        of the N-body force.
+ 
+        Options are:
+        1. A function that takes two arguments: an (Np,3) array of positions
+            (must be Quantities) that contains the positions where the accelerations
+            are to be calculated, and an additional argument that is a dictionary
+            containing any extra parameters you need.
 
-         You may add as many external forces as you want - they will be summed
-         together along with the N-body force.
-        
-         For example, here is a function that would add on an external force
-         from a single point source:
-        
-         def my_point_source_force(pos, args):
-             # acceleration is G M / r^2
-             GM = const.G * args['mass']
-             d_pos = pos - args['pos']
-             r2 = (d_pos**2).sum(axis=1)
-             rhat = d_pos / np.sqrt(r2)
-             return rhat * GM / r2
-        
-         Then to add the force from a particle at 10kpc on the x-axis with
-         a mass of 1e8 Msun, you would do the following:
-          mysimulation = Simulation()
-          mysimulation.add_external_force(my_point_source_force, {'mass':1e8*u.Msun,
-              'pos':np.array([10,0,0])*u.kpc})
+        2. A galpy potential object.
+
+        3. A gala Potential object.
+
+        You may add as many external forces as you want - they will be summed
+        together along with the N-body force.
+
+        For example, here is a function that would add on an external force
+        from a single point source:
+
+        def my_point_source_force(pos, args):
+         # acceleration is G M / r^2
+         GM = const.G * args['mass']
+         d_pos = pos - args['pos']
+         r2 = (d_pos**2).sum(axis=1)
+         rhat = d_pos / np.sqrt(r2)
+         return rhat * GM / r2
+
+        Then to add the force from a particle at 10kpc on the x-axis with
+        a mass of 1e8 Msun, you would do the following:
+        mysimulation = Simulation()
+        mysimulation.add_external_force(my_point_source_force, {'mass':1e8*u.Msun,
+          'pos':np.array([10,0,0])*u.kpc})
+          
+        Parameters
+        ----------
+        fn : function or galpy potential.Potential object or gala potential.PotentialBase object
+            External force function to add
+        args : dict
+            Any extra parameters that should be passed to the function when it is called
         """    
               
         if isinstance(fn, list):
@@ -480,10 +679,10 @@ class Simulation(object):
 
     def add_external_timedependent_force(self, fn, args=None):
         """Add a function that will return the force at a given position and time,
-         which will be added as an external force to the simulation on top
-         of the N-body force.
+        which will be added as an external force to the simulation on top
+        of the N-body force.
          
-         Options are:
+        Options are:
            1. A function that takes three arguments: an (Np,3) array of positions
                 (must be Quantities) that contains the positions where the accelerations
                 are to be calculated, a scalar time, and an additional argument that is a
@@ -493,13 +692,13 @@ class Simulation(object):
            
            3. A gala Potential object.
 
-         You may add as many external forces as you want - they will be summed
-         together along with the N-body force.
+        You may add as many external forces as you want - they will be summed
+        together along with the N-body force.
         
-         For example, here is a function that would add on an external force
-         from a single point source whose mass oscilllates in time:
+        For example, here is a function that would add on an external force
+        from a single point source whose mass oscilllates in time:
         
-         def my_oscillating_point_source_force(pos, time, args):
+        def my_oscillating_point_source_force(pos, time, args):
              # args has 3 parameters:
              #    args['pos']: position of mass
              #    args['massamplitude']: amplitude of oscillating mass (should have mass units)
@@ -511,11 +710,18 @@ class Simulation(object):
              rhat = d_pos / np.sqrt(r2)
              return rhat * GM / r2
                 
-         Then to add the force from a particle at 10kpc on the x-axis with
-         a mass of 1e8 Msol that oscillates every 100 Myr, you would do the following:
-          mysimulation = Simulation()
-          mysimulation.add_external_timedependent_force(my_point_source_force, {'massamplitude':1e8*u.Msun,
+        Then to add the force from a particle at 10kpc on the x-axis with
+        a mass of 1e8 Msol that oscillates every 100 Myr, you would do the following:
+        mysimulation = Simulation()
+        mysimulation.add_external_timedependent_force(my_point_source_force, {'massamplitude':1e8*u.Msun,
               'period':100*u.Myr, 'pos':np.array([10,0,0])*u.kpc})
+              
+        Parameters
+        ----------
+        fn : function or galpy potential.Potential object or gala potential.PotentialBase object
+            External force function to add
+        args : dict
+            Any extra parameters that should be passed to the function when it is called              
         """
 
         if isinstance(fn, list):
@@ -544,10 +750,10 @@ class Simulation(object):
 
     def add_external_velocitydependent_force(self, fn, args=None):
         """Add a function that will return the force at a given position and velocity,
-         which will be added as an external force to the simulation on top
-         of the N-body force.
+        which will be added as an external force to the simulation on top
+        of the N-body force.
          
-         Options are:
+        Options are:
            1. A function that takes three arguments: an (Np,3) array of positions
                 (must be Quantities) that contains the positions where the accelerations
                 are to be calculated, an (Np,3) array of velocities (must be Quantities),
@@ -556,14 +762,14 @@ class Simulation(object):
                 
            2. A galpy potential object (must derive from galpy.potential.DissipativeForce).
 
-         You may add as many external forces as you want - they will be summed
-         together along with the N-body force.
+        You may add as many external forces as you want - they will be summed
+        together along with the N-body force.
         
-         For example, here is a function that would add on an external force
-         that goes in the opposite directly of the current velocity of every particle
-         with magnitude |velocity| / timescale given in args:
+        For example, here is a function that would add on an external force
+        that goes in the opposite directly of the current velocity of every particle
+        with magnitude |velocity| / timescale given in args:
          
-         def my_friction_force(pos, vel, args):
+        def my_friction_force(pos, vel, args):
            # args has 1 parameter:
            #    args['t0']:  timescale (should have time units)
            velmag = np.sqrt(np.sum(vel**2, axis=1))
@@ -571,11 +777,18 @@ class Simulation(object):
            forcearray = -vel/velmag[:,np.newaxis] * forcemag[:,np.newaxis]
            return forcearray
            
-         Then to add a force that slows all particles down on a 100 Myr timescale,
-         you would do the following:
+        Then to add a force that slows all particles down on a 100 Myr timescale,
+        you would do the following:
          
-         mysimulation = Simulation()
-         mysimulation.add_external_velocitydependent_force(my_friction_force, {'t0':100*u.Myr})                
+        mysimulation = Simulation()
+        mysimulation.add_external_velocitydependent_force(my_friction_force, {'t0':100*u.Myr})                
+
+        Parameters
+        ----------
+        fn : function or galpy potential.DissipativeForcePotential object
+            External force function to add
+        args : dict
+            Any extra parameters that should be passed to the function when it is called
         """
 
         if isinstance(fn, list):
