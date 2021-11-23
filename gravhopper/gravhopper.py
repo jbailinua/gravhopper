@@ -765,9 +765,17 @@ class Simulation(object):
         You may add as many external forces as you want - they will be summed
         together along with the N-body force.
         
-        For example, here is a function that would add on an external force
-        that goes in the opposite directly of the current velocity of every particle
-        with magnitude |velocity| / timescale given in args:
+        Parameters
+        ----------
+        fn : function or galpy.potential.DissipativeForcePotential object
+            External force function to add
+        args : dict
+            Any extra parameters that should be passed to the function when it is called
+
+        Example
+        -------
+        This function adds on an external force that goes in the opposite directly of the
+        current velocity of every particle with magnitude |velocity| / timescale given in args:
          
         def my_friction_force(pos, vel, args):
            # args has 1 parameter:
@@ -777,18 +785,11 @@ class Simulation(object):
            forcearray = -vel/velmag[:,np.newaxis] * forcemag[:,np.newaxis]
            return forcearray
            
-        Then to add a force that slows all particles down on a 100 Myr timescale,
-        you would do the following:
+        Then to add a force that slows all particles down on a 100 Myr timescale:
          
         mysimulation = Simulation()
         mysimulation.add_external_velocitydependent_force(my_friction_force, {'t0':100*u.Myr})                
 
-        Parameters
-        ----------
-        fn : function or galpy potential.DissipativeForcePotential object
-            External force function to add
-        args : dict
-            Any extra parameters that should be passed to the function when it is called
         """
 
         if isinstance(fn, list):
@@ -814,21 +815,31 @@ class Simulation(object):
 
 
     def add_IC(self, newIC):
-        """Add particles to the initial conditions.
-         newIC must be a dict with the following key/value pairs:
+        """Adds particles to the initial conditions.
+        
+        Parameters
+        ----------
+        newIC : dict
+           Properties of new particles to add. Must have the following key/value pairs:
            'pos': an array of positions
            'vel': an array of velocities
            'mass': an array of masses
-         All should be astropy Quantities, with shape (Np,3) or just (3) if a single particle.
+           All should be astropy Quantities, with shape (Np,3) or just (3) if a single particle.
 
-         For example, if you have a Simulation object sim, then to add one
-         particle of mass 1e8 Msun at a position 10 kpc from the origin on
-         the x-axis, and a velocity of 200 km/s in the positive y-direction:
+        Example
+        -------
+        To create a simulation object whose initial conditions consist of a
+        particle of mass 1e8 Msun at a position 10 kpc from the origin on
+        the x-axis, and a velocity of 200 km/s in the positive y-direction:
          
-         sim.add_IC( {'pos':np.array([10,0,0])*u.kpc, 'vel':np.array([0,200,0])*u.km/u.s, 
+        sim = Simulation()
+        sim.add_IC( {'pos':np.array([10,0,0])*u.kpc, 'vel':np.array([0,200,0])*u.km/u.s, 
             'mass':np.array([1e8])*u.Msun} )
-
-         See the functions in jbnbody.IC for other examples."""
+            
+        See Also
+        --------
+        IC : Class containing static functions that generate initial conditions that can be added using add_IC().
+        """
 
         #sanity check that all pieces are there and have the same number of particles
         if 'pos' not in newIC:
@@ -856,8 +867,29 @@ class Simulation(object):
 
 
     def pyn_snap(self, timestep=None):
-        """Return snapshot given by the timestep as a pynbody snapshot. Gives final
-        snapshot if timestep is None."""
+        """Return snapshot given by the timestep as a pynbody snapshot.
+        
+        Parameters
+        ----------
+        timestep : int
+            Snapshot number to return. Returns final snapshot if timestep is None (default: None)
+        
+        Returns
+        -------
+        sim : pynbody SimSnap
+            Snapshot
+            
+        Notes
+        -----
+        Returned snapshot will have length units of Unit("kpc"), velocity units of Unit("km s**-1"),
+        and mass units of Unit("Msol").
+        
+        Raises
+        ------
+        ExternalPackageException
+            If pynbody could not be imported.
+        
+        """
         
         if USE_PYNBODY:
             if timestep is None:
@@ -893,27 +925,41 @@ class Simulation(object):
         """
         Scatter plot of particle positions or velocities for a snapshot.
     
-        Parameters:
-            parm:       'pos' or 'vel' to plot particles positions or velocities. Default: 'pos'
-            coords:     'xy', 'xz', or 'yz' to plot the various projections. Default: 'xy'
-            snap:       Which snapshot to plot. Either a snapshot number, 'final' for the last
-                            snapshot, or 'IC' for initial conditions. Default: 'final'
-            xlim:       xrange of plot, or None for matplotlib choice. Default: None
-            ylim:       yrange of plot, or None for matplotlib choice. Default: None
-            s:          Scatter plot size. Default: 0.2
-            unit:       Unit for x and y axes. Default: Unit of self.positions or self.velocities.
-            ax:         matplotlib Axis to plot on. If None, uses plt.subplot(111, aspect=1.0) to create one.
-                            Default: None.
-            timeformat: Format string for snapshot time in title, or False for no title. Useful for designating the
-                            number of decimals that will make sense, (e.g. '{0:.1f}' for one
-                            decimal place). Default: '{0:.1f}'
-            nolabels:   Do not label axes. Default: False
-            particle_range: 2-element array-like, or None. Only plot particles with indices between
-                            particle_range[0] and particle_range[1]-1.
+        Parameters
+        ----------
+        parms : str
+            'pos' or 'vel' to plot particle positions or velocities (default: 'pos')
+        coords : str
+            'xy', 'xz', or 'yz' to plot the different Cartesian projections (default 'xy')
+        snap : int or str
+            Which snapshot to plot. Either a snapshot number, 'final' for the last snapshot,
+            or 'IC' for the initial conditions (default: 'final')
+        xlim : array-like, optional
+            x limits of plot
+        ylim : array-like, optional
+            y limits of plot
+        s : float
+            Scatter plot point size (default: 0.2)
+        unit: astropy Unit, optional
+            Plot the quantities in the given unit system. The default is whatever units
+            the positions or velocities array is in, which is kpc or km/s by default but
+            can be changed.
+        ax : matplotlib Axis, optional
+            Axis on which to plot. If missing or None, uses plt.subplot(111, aspect=1.0) to
+            create a new Axis object.
+        timeformat : str or False
+            Format string for snapshot time in title, or False for no title (default: '{0:.1f}')
+        nolabels : bool, optional
+            If True, do not label x and y axes (default: False)
+        particle_range: array-like, optional
+            Only plot particles with indices in the slice particle_range[0]:particle_range[1]
+        **kwargs : dict
+            All additional keyword arguments are passed onto plt.scatter()
             
-        Any additional keyword arguments are passed onto plt.scatter()
-                        
-        Returns the scatter plot.
+        Returns
+        -------
+        scatter : matplotlib PathCollection
+            The scatter plot
         """
 
         # Create axis if necessary.
@@ -1008,17 +1054,23 @@ class Simulation(object):
         
     
     def movie_particles(self, fname, fps=25, ax=None, skip=None, timeformat='{0:.1f}', *args, **kwargs):
-        """Create a movie of the particles. Uses the plot_particles() function.
+        """Create a movie of the particles using the plot_particles() function.
         
-        Parameters:
-            fname:      Movie output file name. Required.
-            fps:        Frames per second. Default: 25.
-            ax:         Matplotlib Axes to plot on. If None (default), creates a new
-                        figure and a new axis on that figure using add_subplot(111, aspect=1.0)
-                        and closes the figure at the end.
-            skip:       Skip every N frames.
-            
-        All other parameters are passed through to plot_particles().
+        Parameters
+        ----------
+        fname : str
+            Movie output file name
+        fps : int
+            Frames per second (default: 25)
+        ax : matplotlib Axis, optional
+            Axis on which to plot. If missing or None, uses plt.subplot(111, aspect=1.0) to
+            create a new Axis object and closes the figure after the movie is made.
+        skip : int, optional
+            Skip every N frames (e.g. skip=5 only has 1/5th of the full number of frames).
+        *args : object
+            Passed through to plot_particles()
+        **kwargs : dict
+            Passed through to plot_particles()
         """
         
         # Create axis if necessary.
