@@ -1108,21 +1108,93 @@ class Simulation(object):
 
         
 class IC(object):
-    """Namespace for holding static methods that define various ICs."""
+    """Namespace for holding static methods that define various ICs.
+    
+    Methods
+    -------
+    from_galpy_df(df, N=None, totmass=None, center_pos=None, center_vel=None, force_origin=True)
+        Create IC by sampling a galpy spherical distribution function object.
+    from_pyn_snap(pynsnap)
+        Create IC from a pynbody SimSnap.
+    TSIS(N=None, maxrad=None, totmass=None, center_pos=None, center_vel=None, force_origin=True, seed=None)
+        Create a Truncated Singular Isothermal Sphere IC.
+    Plummer(N=None, b=None, totmass=None, center_pos=None, center_vel=None, force_origin=True, seed=None)
+        Create an isotropic Plummer sphere IC.
+    Hernquist(N=None, a=None, totmass=None, cutoff=10., center_pos=None, center_vel=None, force_origin=True, seed=None)
+        Create an isotropic Hernquist model IC.
+    expdisk(sigma0=None, Rd=None, z0=None, sigmaR_Rd=None, external_rotcurve=None, N=None, center_pos=None, center_vel=None, force_origin=True, seed=None)
+        Create an exponential disk IC that is very approximately in equilibrium.
+    """
     
     @staticmethod
     def from_galpy_df(df, N=None, totmass=None, center_pos=None, center_vel=None, force_origin=True):
-        """Sample a galpy sphericaldf DF object and return as an IC. Arguments:
-            N: Number of particles (required)
-            totmass: Total mass (astropy Quantity, required)
-        Optional:
-            center_pos: Force center of mass of simulation to here. Quantity array of size 3.
-            center_vel: Force center of mass velocity of simulation to this. Quantity array
-                of size 3.
-            force_origin: Equivalent to setting center_pos=np.array([0,0,0])*u.kpc
-                and center_vel=np.array([0,0,0])*u.km/u.s. Default True unless center_pos
-                and center_vel is set. If only one of center_mass and center_vel are set,
-                and force_origin is True, then the other is set to 0,0,0.
+        """Sample a galpy sphericaldf DF object and return as an IC.
+        
+        Parameters
+        ----------
+        df : galpy df.sphericaldf object
+            Distribution function to sample. Assumed to be in the ro=8, vo=220 unit system.
+        N : int
+            Number of particles
+        totmass : astropy Quantity
+            Total mass
+        center_pos : 3 element array-like Quantity, optional
+            Force the center of mass of the IC to be at this position
+        center_vel : 3 element array-like Quantity, optional
+            Force the mean velocity of the IC to have this velocity
+        force_origin : bool
+            Force the center of mass to be at the origin and the mean velocity to be zero;
+            equivalent to setting center_pos=np.array([0,0,0])*u.kpc and
+            center_vel=np.array([0,0,0])*u.km/u.s. Default is True unless center_pos and
+            center_vel is set. If force_origin is True and only one of center_pos or
+            center_vel is set, the other is set to zero.
+            
+        Returns
+        -------
+        IC : dict
+           Properties of new particles to add, which sample the given distribution function. Contains
+           the following key/value pairs:
+           'pos': an array of positions
+           'vel': an array of velocities
+           'mass': an array of masses
+           Each are astropy Quantities, with shape (Np,3).
+            
+        Example
+        -------
+        Sample an NFW halo with scale radius 20 kpc, scale amplitude 2e11 solar masses, and a maximum
+        radius of 1 Mpc with 10,000 particles:
+        
+          from astropy import units as u
+          from galpy import potential, df
+        
+          NFWamp = 2e11 * u.Msun
+          NFWrs = 20 * u.kpc
+          ro = 8.
+          vo = 220.
+          rmax = 1 * u.Mpc
+          rmax_over_ro = (rmax/(ro*u.kpc)).to(1).value
+          Nhalo = 10000
+          NFWpot = potential.NFWNFWPotential(amp=NFWamp, a=NFWrs)
+          NFWmass = potential.mass(NFWpot, rmax)
+          potential.turn_physical_off(NFWpot)
+          NFWdf = df.isotropicNFWdf(pot=NFWpot, rmax=rmax_over_ro)
+
+          halo_IC = IC.from_galpy_df(NFWdf, N=Nhalo, totmass=NFWmass)  
+          
+          potential.turn_physical_on(NFWpot)   # optional if needed later      
+            
+        Notes
+        -----
+        As of galpy version 1.7.0, the df module does not return unitful quantities consistently.
+        The recommended use is to define any relevantpotential  using the ro=8, vo=220 unit system,
+        turn physical output for the potential off, cerate the df object from the potential,
+        use from_galpy_df() to create the ICs, and then turn physical output back on
+        if desired (see Example).
+        
+        Raises
+        ------
+        ExternalPackageException
+            If galpy could not be imported.
         """
         
         if USE_GALPY:
