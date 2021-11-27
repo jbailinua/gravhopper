@@ -1226,7 +1226,29 @@ class IC(object):
             
     @staticmethod
     def from_pyn_snap(pynsnap):
-        """Turn a pynbody SimSnap into a set of GravHopper initial conditions."""
+        """Turn a pynbody SimSnap into a set of GravHopper initial conditions.
+        
+        Parameters
+        ----------
+        pynsnap : SimSnap
+            pynbody snapshot to convert
+            
+        Returns
+        -------
+        IC : dict
+           Properties of new particles to add, which sample the given distribution function. Contains
+           the following key/value pairs:
+           'pos': an array of positions
+           'vel': an array of velocities
+           'mass': an array of masses
+           Each are astropy Quantities, with shape (Np,3).
+           
+        Raises
+        ------
+        ExternalPackageException
+            If pynbody could not be imported.        
+        """
+        
         if USE_PYNBODY:
             # Pynbody units can be complicated things with constants embedded in the
             # unit. Convert them to a simple astropy units system of kpc-km/s-Msun.
@@ -1252,29 +1274,49 @@ class IC(object):
     
     @staticmethod
     def TSIS(N=None, maxrad=None, totmass=None, center_pos=None, center_vel=None, force_origin=True, seed=None):
-        """Returns the positions, velocities, and masses for particles that
-         form a truncated singular isothermal sphere (e.g. BT eqs 4.103 and 4.104
-         with a maximum radius imposed). Note that this is not a true equilibrium
-         because of the truncation -- it will be in apporoximate equilibrium in the 
-         inner regions, at least at first, but not in the outer regions.
+        """Generate the initial conditions for a Truncated Singular Isothermal Sphere
+        (e.g. BT eqs 4.103 and 4.104 with a maximum radius imposed). Note that this is
+        not a true equilibrium because of the truncation -- it will be in apporoximate
+        equilibrium in the inner regions, at least at first, but not in the outer regions.
          
-         The parameters are:
-           N: number of particles
-           maxrad: truncation radius (astropy Quantity)
-           totmass: total mass (astropy Quantity)
-            center_pos: Force center of mass of simulation to here. Quantity array of size 3. Optional.
-            center_vel: Force center of mass velocity of simulation to this. Quantity array
-                of size 3. Optional.
-            force_origin: Equivalent to setting center_pos=np.array([0,0,0])*u.kpc
-                and center_vel=np.array([0,0,0])*u.km/u.s. Default True unless center_pos
-                and center_vel is set. If only one of center_mass and center_vel are set,
-                and force_origin is True, then the other is set to 0,0,0.
-            seed: Random number seed, to create reproducible ICs. Optional.
-    
-         For example, here is how you might initialize a simulation that uses this:
-          mysim = Simulation()
-          mysim.add_IC(IC.TSIS(N=10000, maxrad=100*u.kpc, totmass=1e11*u.Msun))
-          """
+        Parameters
+        ----------
+        N : int
+            Number of particles
+        maxrad : astropy Quantity with length dimensions
+            Truncation radius
+        totmass : astropy Quantity with mass dimensions
+            Total mass
+        center_pos : 3 element array-like Quantity, optional
+            Force the center of mass of the IC to be at this position
+        center_vel : 3 element array-like Quantity, optional
+            Force the mean velocity of the IC to have this velocity
+        force_origin : bool
+            Force the center of mass to be at the origin and the mean velocity to be zero;
+            equivalent to setting center_pos=np.array([0,0,0])*u.kpc and
+            center_vel=np.array([0,0,0])*u.km/u.s. Default is True unless center_pos and
+            center_vel is set. If force_origin is True and only one of center_pos or
+            center_vel is set, the other is set to zero.
+        seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}, optional
+            Seed to initialize random number generator to enable repeatable ICs.
+            
+        Returns
+        -------
+        IC : dict
+           Properties of new particles to add, which sample the given distribution function. Contains
+           the following key/value pairs:
+           'pos': an array of positions
+           'vel': an array of velocities
+           'mass': an array of masses
+           Each are astropy Quantities, with shape (Np,3).
+
+        Example
+        -------
+        To create a truncated singular isothermal sphere with a total mass of 1e11 solar masses,
+        a truncation radius of 100 kpc, sampled with 10,000 particles:
+        
+        particles = IC.TSiS(N=10000, maxrad=100*u.kpc, totmass=1e11*u.Msun)
+        """
 
         if (N is None) or (maxrad is None) or (totmass is None):
             raise ICException("TSIS requires N, maxrad, and totmass.")
@@ -1306,25 +1348,46 @@ class IC(object):
 
     @staticmethod
     def Plummer(N=None, b=None, totmass=None, center_pos=None, center_vel=None, force_origin=True, seed=None):
-        """Returns the positions, velocities, and masses for particles that
-        form an isotropic Plummer model (BT eqs. 4.83 with n=5, 4.92, 2.44b).
-        The parameters are:
-            totmass: total mass (astropy Quantity)
-            b: scale radius (astropy Quantity)
-            N: number of particles
-            center_pos: Force center of mass of simulation to here. Quantity array of size 3. Optional.
-            center_vel: Force center of mass velocity of simulation to this. Quantity array
-                of size 3. Optional.
-            force_origin: Equivalent to setting center_pos=np.array([0,0,0])*u.kpc
-                and center_vel=np.array([0,0,0])*u.km/u.s. Default True unless center_pos
-                and center_vel is set. If only one of center_mass and center_vel are set,
-                and force_origin is True, then the other is set to 0,0,0.
-            seed: Random number seed, to create reproducible ICs. Optional.
-
-        For example, here is how you might initialize a simulation that uses this:
-         mysim = Simulation()
-         mysim.add_IC(IC.Plummer(N=10000, b=1*u.pc, totmass=1e6*u.Msun))
-         """
+        """Generate the initial conditions for an isotropic Plummer model (BT eqs. 4.83 with n=5, 4.92, 2.44b).
+        
+        Parameters
+        ----------
+        N : int
+            Number of particles
+        b : astropy Quantity of dimension length
+            Scale radius
+        totmass : astropy Quantity of dimensions mass
+            Total mass
+        center_pos : 3 element array-like Quantity, optional
+            Force the center of mass of the IC to be at this position
+        center_vel : 3 element array-like Quantity, optional
+            Force the mean velocity of the IC to have this velocity
+        force_origin : bool
+            Force the center of mass to be at the origin and the mean velocity to be zero;
+            equivalent to setting center_pos=np.array([0,0,0])*u.kpc and
+            center_vel=np.array([0,0,0])*u.km/u.s. Default is True unless center_pos and
+            center_vel is set. If force_origin is True and only one of center_pos or
+            center_vel is set, the other is set to zero.
+        seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}, optional
+            Seed to initialize random number generator to enable repeatable ICs.
+            
+        Returns
+        -------
+        IC : dict
+           Properties of new particles to add, which sample the given distribution function. Contains
+           the following key/value pairs:
+           'pos': an array of positions
+           'vel': an array of velocities
+           'mass': an array of masses
+           Each are astropy Quantities, with shape (Np,3).
+           
+        Example
+        -------
+        To create a Plummer sphere with scale radius 1 pc and a total mass of 1e6 Msun sampled
+        with 10,000 particles:
+        
+        particles = IC.Plummer(N=10000, b=1*u.pc, totmass=1e6*u.Msun)
+        """
 
         if (N is None) or (b is None) or (totmass is None):
             raise ICException("Plummer requires N, b, and totmass.")
@@ -1375,26 +1438,48 @@ class IC(object):
 
     @staticmethod
     def Hernquist(N=None, a=None, totmass=None, cutoff=10., center_pos=None, center_vel=None, force_origin=True, seed=None):
-        """Returns the positions, velocities, and masses for particles that
-        form an isotropic Hernquist model (Hernquist 1990).
-        The parameters are:
-            totmass: total mass (astropy Quantity)
-            a: scale radius (astropy Quantity)
-            N: number of particles
-            cutoff: don't include particles more than cutoff times the scale radius. Default: 10
-            center_pos: Force center of mass of simulation to here. Quantity array of size 3. Optional.
-            center_vel: Force center of mass velocity of simulation to this. Quantity array
-                of size 3. Optional.
-            force_origin: Equivalent to setting center_pos=np.array([0,0,0])*u.kpc
-                and center_vel=np.array([0,0,0])*u.km/u.s. Default True unless center_pos
-                and center_vel is set. If only one of center_mass and center_vel are set,
-                and force_origin is True, then the other is set to 0,0,0.
-            seed: Random number seed, to create reproducible ICs. Optional.
+        """Generate the initial conditions for an isotropic Hernquist model (Hernquist 1990).
         
-        For example, here is how you might initialize a simulation that uses this:
-         mysim = Simulation()
-         mysim.add_IC( IC.Hernquist(N=10000, a=1*u.kpc, totmass=1e10*u.Msun) )
-         """
+        Parameters
+        ----------
+        N : int
+            Number of particles
+        a : astropy Quantity of dimension length
+            Scale radius
+        totmass : astropy Quantity of dimension mass
+            Total mass
+        cutoff : float
+            Cut off the distribution at cutoff times the scale radius
+        center_pos : 3 element array-like Quantity, optional
+            Force the center of mass of the IC to be at this position
+        center_vel : 3 element array-like Quantity, optional
+            Force the mean velocity of the IC to have this velocity
+        force_origin : bool
+            Force the center of mass to be at the origin and the mean velocity to be zero;
+            equivalent to setting center_pos=np.array([0,0,0])*u.kpc and
+            center_vel=np.array([0,0,0])*u.km/u.s. Default is True unless center_pos and
+            center_vel is set. If force_origin is True and only one of center_pos or
+            center_vel is set, the other is set to zero.
+        seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}, optional
+            Seed to initialize random number generator to enable repeatable ICs.
+            
+        Returns
+        -------
+        IC : dict
+           Properties of new particles to add, which sample the given distribution function. Contains
+           the following key/value pairs:
+           'pos': an array of positions
+           'vel': an array of velocities
+           'mass': an array of masses
+           Each are astropy Quantities, with shape (Np,3).
+           
+        Example
+        -------
+        To create a Hernquist sphere with a total mass of 1e10 solar masses, a scale radius
+        of 1 kpc, sampled with 10,000 particles:
+        
+        particles = IC.Hernquist(N=10000, a=1*u.kpc, totmass=1e10*u.Msun)
+        """
          
         rng = np.random.default_rng(seed)
      
@@ -1465,31 +1550,57 @@ class IC(object):
     @staticmethod
     def expdisk(sigma0=None, Rd=None, z0=None, sigmaR_Rd=None, external_rotcurve=None, N=None, \
         center_pos=None, center_vel=None, force_origin=True, seed=None):
-        """Returns the positions, velocities, and masses for particles that
-        form an exponential disk with a sech^2 vertical distribution that is
-        in approximate equilibrium.
-        The parameters are:
-            sigma0: central surface density (astropy Quantity)
-            Rd: exponential scale length (astropy Quantity)
-            z0: scale height (astropy Quantity)
-            sigmaR_Rd: radial velocity dispersion at R=Rd (astropy Quantity)
-            external_rotcurve: function that returns the circular velocity of any external
-                force, or None if there is none. Input and output should be Astropy Quantities.
-            N: number of particles
-            center_pos: Force center of mass of simulation to here. Quantity array of size 3. Optional.
-            center_vel: Force center of mass velocity of simulation to this. Quantity array
-                of size 3. Optional.
-            force_origin: Equivalent to setting center_pos=np.array([0,0,0])*u.kpc
-                and center_vel=np.array([0,0,0])*u.km/u.s. Default True unless center_pos
-                and center_vel is set. If only one of center_mass and center_vel are set,
-                and force_origin is True, then the other is set to 0,0,0.
-            seed: Random number seed, to create reproducible ICs. Optional.
-
-        For example, here is how you might initialize a simulation that uses this:
-         mysim = Simulation()
-         mysim.add_IC( IC.expdisk(N=10000, sigma0=200*u.Msun/u.pc**2, Rd=2*u.kpc,
-                z0=0.5*u.kpc, sigmaR=10*u.km/u.s,
-                halo_force=lambda x: (200*u.km/u.s)**2 / x) )
+        """Generates initial conditions of an exponential disk with a sech^2 vertical distribution that is
+        in (very) approximate equilibrium: rho(R,z) = (sigma0 / 2 z0) exp(-R/Rd) sech^2(z/z0)
+        
+        Parameters
+        ----------
+        sigma0 : astropy Quantity with dimensions of surface density
+            Central surface density
+        Rd : astropy Quantity with dimensions of length
+            Radial exponential scale length
+        z0 : astropy Quantity with dimensions of length
+            Vertical scale height
+        sigmaR_Rd : astropy Quantity with dimensions of velocity
+            Radial velocity dispersion at R=Rd
+        external_rotcurve : function or None
+            Function that returns the circular velocity of any external potential that contributes
+            to the rotation curve aside from the disk itself. The function should accept input
+            as an astropy Quantity of dimension length, and should return an astropy Quantity of
+            dimension velocity.
+        N : int
+            Number of particles
+        center_pos : 3 element array-like Quantity, optional
+            Force the center of mass of the IC to be at this position
+        center_vel : 3 element array-like Quantity, optional
+            Force the mean velocity of the IC to have this velocity
+        force_origin : bool
+            Force the center of mass to be at the origin and the mean velocity to be zero;
+            equivalent to setting center_pos=np.array([0,0,0])*u.kpc and
+            center_vel=np.array([0,0,0])*u.km/u.s. Default is True unless center_pos and
+            center_vel is set. If force_origin is True and only one of center_pos or
+            center_vel is set, the other is set to zero.
+        seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}, optional
+            Seed to initialize random number generator to enable repeatable ICs.
+            
+        Returns
+        -------
+        IC : dict
+           Properties of new particles to add, which sample the given distribution function. Contains
+           the following key/value pairs:
+           'pos': an array of positions
+           'vel': an array of velocities
+           'mass': an array of masses
+           Each are astropy Quantities, with shape (Np,3).
+           
+        Example
+        -------
+        To create an exponential disk that is in a background logarithmic halo potential that
+        generates a flat rotation curve of 200 km/s:
+        
+        particles = IC.expdisk(N=10000, sigma0=200*u.Msun/u.pc**2, Rd=2*u.kpc,
+                z0=0.5*u.kpc, sigmaR_Rd=10*u.km/u.s,
+                external_rotcurve=lambda x: (200*u.km/u.s)**2 / x)
         """
                 
         rng = np.random.default_rng(seed)
@@ -1565,15 +1676,30 @@ class IC(object):
         
 def force_centers(positions, velocities, center_pos=None, center_vel=None, force_origin=True):
     """Move positions and velocities to have the desired center of mass position and mean velocity.
-        center_pos: Force center of mass of simulation to here. Quantity array of size 3.
-        center_vel: Force center of mass velocity of simulation to this. Quantity array
-            of size 3.
-        force_origin: Equivalent to setting center_pos=np.array([0,0,0])*u.kpc
-            and center_vel=np.array([0,0,0])*u.km/u.s. Default True unless center_pos
-            and center_vel is set. If only one of center_mass and center_vel are set,
-            and force_origin is True, then the other is set to 0,0,0.
-            
-        Returns new (positions, velocities).
+    
+    Parameters
+    ----------
+    positions : array of Quantities of dimension length
+        (Np,3) array of particle positions
+    velocities : array of Quantities of dimension velocity
+        (Np,3) array of particle velocities
+    center_pos : 3 element array-like Quantity, optional
+        Force the center of mass of the IC to be at this position
+    center_vel : 3 element array-like Quantity, optional
+        Force the mean velocity of the IC to have this velocity
+    force_origin : bool
+        Force the center of mass to be at the origin and the mean velocity to be zero;
+        equivalent to setting center_pos=np.array([0,0,0])*u.kpc and
+        center_vel=np.array([0,0,0])*u.km/u.s. Default is True unless center_pos and
+        center_vel is set. If force_origin is True and only one of center_pos or
+        center_vel is set, the other is set to zero.
+        
+    Returns
+    -------
+    newpositions : array of Quantities of dimension length
+        New shifted positions
+    newvelocities : array of Quantities of dimension velocity
+        New shifted velocities
     """
     
     newpos = positions
