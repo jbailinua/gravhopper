@@ -423,7 +423,7 @@ class Simulation(object):
         
         
     def calculate_acceleration(self, time=None):
-        """Calculate acceleration due to gravitational N-body force, plus any external
+        """Calculate acceleration for particle positions at current_snap() due to gravitational N-body force, plus any external
         forces that have been added.
          
         Parameters
@@ -434,7 +434,7 @@ class Simulation(object):
         Returns
         -------
         acceleration : array
-            An (Np,3) numpy array of the acceleration vector calculated for each aprticle
+            An (Np,3) numpy array of the acceleration vector calculated for each particle
          
         Raises
         ------
@@ -775,7 +775,7 @@ class Simulation(object):
         Example
         -------
         This function adds on an external force that goes in the opposite directly of the
-        current velocity of every particle with magnitude |velocity| / timescale given in args:
+        current velocity of every particle with magnitude abs(velocity) / timescale given in args:
          
         def my_friction_force(pos, vel, args):
            # args has 1 parameter:
@@ -1022,18 +1022,18 @@ class Simulation(object):
             
             ax.set_xlabel('${0}$ ({1})'.format(xlabel, str(unit)))
             ax.set_ylabel('${0}$ ({1})'.format(ylabel, str(unit)))
-        self.plot_particles_settitle(ax, snapnum, timeformat)
+        self._plot_particles_settitle(ax, snapnum, timeformat)
                                 
         return output
         
 
-    def plot_particles_settitle(self, ax, snapnum, timeformat=False):
+    def _plot_particles_settitle(self, ax, snapnum, timeformat=False):
         """Utility routine to set title of axis to the time of snapnum using the given format."""
         if timeformat != False:
             ax.set_title(timeformat.format(self.times[snapnum]))
             
         
-    def plot_particles_setoffsets(self, scatterplot, snapnum):
+    def _plot_particles_setoffsets(self, scatterplot, snapnum):
         """Update a previously-made plot_particles() with a new snapshot number."""
         
         # Get the things that will be plotted
@@ -1089,11 +1089,27 @@ class Simulation(object):
         # Initial frame
         particles = self.plot_particles(*args, ax=ax, snap='IC', timeformat=timeformat, **kwargs)
         
+        # Default x and y limits are min/max over the whole simulation
+        # Get the things that will be plotted
+        if self._plot_parms['data_parm']=='pos':
+            data = self.positions
+        elif self._plot_parms['data_parm']=='vel':
+            data = self.velocities
+        xdat = data[:, self._plot_parms['particle_range'][0]:self._plot_parms['particle_range'][1], self._plot_parms['xindex']].to(self._plot_parms['unit']).value
+        ydat = data[:, self._plot_parms['particle_range'][0]:self._plot_parms['particle_range'][1], self._plot_parms['yindex']].to(self._plot_parms['unit']).value
+        if 'xlim' not in kwargs:
+            kwargs['xlim'] = [np.min(xdat), np.max(xdat)]
+            ax.set_xlim(kwargs['xlim'])
+        if 'ylim' not in kwargs:
+            kwargs['ylim'] = [np.min(ydat), np.max(ydat)]
+            ax.set_ylim(kwargs['ylim'])
+            
+        
         # Function that updates each frame
         def animate(frame):
             framesnap = frame * skip
-            self.plot_particles_setoffsets(particles, framesnap)
-            self.plot_particles_settitle(ax, framesnap, timeformat)
+            self._plot_particles_setoffsets(particles, framesnap)
+            self._plot_particles_settitle(ax, framesnap, timeformat)
             return particles
             
         ms_per_frame = 1000 / fps

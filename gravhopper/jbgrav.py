@@ -2,16 +2,6 @@
 
 """Functions for calculating the N-body force from a set of particles. Calls the
 C extension functions to do the calculation.
-
-Contains the following functions
-
-direct_summation(snap, eps)
-    Calculates the gravitational acceleration on every particle in the snapshot from
-    every other particle in the snapshot using direct summation.
-    
-tree_force(snap, eps)
-    Calculates the gravitational acceleration on every particle in the snapshot from
-    every other particle in the snapshot using a Barnes-Hut tree.
 """
 
 
