@@ -102,48 +102,6 @@ class Simulation(object):
         Default internal velocity unit
     accelunit : Unit
         Default internal acceleration unit
-    
-    Methods
-    -------
-    add_IC(newIC)
-        Adds one or more particles to the initial conditions of the simulation
-    add_external_force(fn, args=None)
-        Add an external force function to the simulation
-    add_external_timedependent_force(fn, args=None)
-        Add an external time-depdendent force function to the simulation
-    add_external_velocitydependent_force(fn, args=None)
-        Add an external velocity-dependent force function to the simulation
-    run(N=1)
-        Runs the simulation for N time steps, from the initial conditions if it hasn't
-        yet been run, or continuing from the last snapshot otherwise
-    pyn_snap(timestep=None)
-        Returns a pynbody snapshot object containing the last or a specific snapshot of the simulation
-    plot_particles(parm='pos', coords='xy', snap='final', xlim=None, ylim=None, s=0.2, unit=None, ax=None, timeformat='{0:.1f}', nolabels=False, particle_range=None)
-        Plots a 2D scatterplot of either the particle positions or velocities at a given snapshot
-    movie_particles(fname, fps=25, ax=None, skip=None, timeformat='{0:.1f}')
-        Makes a movie of the simulation    
-    set_dt(dt)
-        Sets simulation time step
-    get_dt()
-        Returns simulation time step
-    set_eps(eps)
-        Sets simulation softening length
-    get_eps()
-        Returns simulation softening length
-    set_algorithm(algorithm)
-        Sets simulation gravity algorithm
-    get_algorithm
-        Returns simulation gravity algorithm
-    reset()
-        Resets a simulation so that it can be run again
-    snap(step)
-        Returns a single snapshot
-    current_snap()
-        Returns the last snapshot that was performed
-    prev_snap()
-        Returns the second-to-last snapshot that was performed
-    calculate_acceleration(time=None)
-        Calculates the acceleration on all particles at current_snap()
     """
     
     def __init__(self, dt=1*u.Myr, eps=100*u.pc, algorithm='tree'):
