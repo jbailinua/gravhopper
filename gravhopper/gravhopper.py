@@ -116,8 +116,11 @@ class Simulation(object):
         algorithm : str ('tree' or 'direct')
             Gravitational force calculation algorithm. Default: 'tree'
 
-        For example, to create a new simulation with a timestep of 1 year:
-        sim = Simulation(dt=1.0*u.yr)
+        Example
+        -------
+        To create a new simulation with a timestep of 1 year::
+        
+            sim = Simulation(dt=1.0*u.yr)
         """
 
         self.ICarrays = False
@@ -568,15 +571,14 @@ class Simulation(object):
 
 
     def add_external_force(self, fn, args=None):
-        """Add a function that will return the force at a given position,
-        which will be added as an external force to the simulation on top
-        of the N-body force.
+        """Add an external position-dependent force to the simulation.
  
-        Options are:
+        Forces can be in the form of:
+        
         1. A function that takes two arguments: an (Np,3) array of positions
-            (must be Quantities) that contains the positions where the accelerations
-            are to be calculated, and an additional argument that is a dictionary
-            containing any extra parameters you need.
+           (must be Quantities) that contains the positions where the accelerations
+           are to be calculated, and an additional argument that is a dictionary
+           containing any extra parameters you need.
 
         2. A galpy potential object.
 
@@ -585,29 +587,32 @@ class Simulation(object):
         You may add as many external forces as you want - they will be summed
         together along with the N-body force.
 
-        For example, here is a function that would add on an external force
-        from a single point source:
-
-        def my_point_source_force(pos, args):
-         # acceleration is G M / r^2
-         GM = const.G * args['mass']
-         d_pos = pos - args['pos']
-         r2 = (d_pos**2).sum(axis=1)
-         rhat = d_pos / np.sqrt(r2)
-         return rhat * GM / r2
-
-        Then to add the force from a particle at 10kpc on the x-axis with
-        a mass of 1e8 Msun, you would do the following:
-        mysimulation = Simulation()
-        mysimulation.add_external_force(my_point_source_force, {'mass':1e8*u.Msun,
-          'pos':np.array([10,0,0])*u.kpc})
-          
         Parameters
         ----------
         fn : function or galpy potential.Potential object or gala potential.PotentialBase object
             External force function to add
         args : dict
             Any extra parameters that should be passed to the function when it is called
+            
+        Example
+        -------
+        This function calculates an external force from a single point source::
+
+            def my_point_source_force(pos, args):
+                 # acceleration is G M / r^2
+                 GM = const.G * args['mass']
+                 d_pos = pos - args['pos']
+                 r2 = (d_pos**2).sum(axis=1)
+                 rhat = d_pos / np.sqrt(r2)
+                 return rhat * GM / r2
+
+        To add the force from a particle at 10kpc on the x-axis with
+        a mass of 1e8 Msun::
+            mysimulation = Simulation()
+            mysimulation.add_external_force(my_point_source_force, {'mass':1e8*u.Msun,
+              'pos':np.array([10,0,0])*u.kpc})
+          
+        
         """    
               
         if isinstance(fn, list):
@@ -636,43 +641,22 @@ class Simulation(object):
 
 
     def add_external_timedependent_force(self, fn, args=None):
-        """Add a function that will return the force at a given position and time,
-        which will be added as an external force to the simulation on top
-        of the N-body force.
+        """Add an external time-dependent force to the simulation.
          
-        Options are:
-           1. A function that takes three arguments: an (Np,3) array of positions
-                (must be Quantities) that contains the positions where the accelerations
-                are to be calculated, a scalar time, and an additional argument that is a
-                dictionary containing any extra parameters you need.
+        Forces can be in the form of:
+        
+        1. A function that takes three arguments: an (Np,3) array of positions (must be
+           Quantities) that contains the positions where the accelerations are to be 
+           calculated, a scalar time, and an additional argument that is a dictionary 
+           containing any extra parameters you need.
                 
-           2. A galpy potential object.
+        2. A galpy potential object.
            
-           3. A gala Potential object.
+        3. A gala Potential object.
 
         You may add as many external forces as you want - they will be summed
         together along with the N-body force.
         
-        For example, here is a function that would add on an external force
-        from a single point source whose mass oscilllates in time:
-        
-        def my_oscillating_point_source_force(pos, time, args):
-             # args has 3 parameters:
-             #    args['pos']: position of mass
-             #    args['massamplitude']: amplitude of oscillating mass (should have mass units)
-             #    args['period']: period of oscillation of mass (should have time units)
-             # acceleration is G M / r^2
-             GM = const * args['massamplitude'] * (np.cos(2. * np.pi * time / args['period']) + 1.)
-             d_pos = pos - args['pos']
-             r2 = (d_pos**2).sum(axis=1)
-             rhat = d_pos / np.sqrt(r2)
-             return rhat * GM / r2
-                
-        Then to add the force from a particle at 10kpc on the x-axis with
-        a mass of 1e8 Msol that oscillates every 100 Myr, you would do the following:
-        mysimulation = Simulation()
-        mysimulation.add_external_timedependent_force(my_point_source_force, {'massamplitude':1e8*u.Msun,
-              'period':100*u.Myr, 'pos':np.array([10,0,0])*u.kpc})
               
         Parameters
         ----------
@@ -680,6 +664,32 @@ class Simulation(object):
             External force function to add
         args : dict
             Any extra parameters that should be passed to the function when it is called              
+
+
+        Example
+        -------
+        
+        This function calculates an external force
+        from a single point source whose mass oscilllates in time::
+        
+            def my_oscillating_point_source_force(pos, time, args):
+                 # args has 3 parameters:
+                 #    args['pos']: position of mass
+                 #    args['massamplitude']: amplitude of oscillating mass (should have mass units)
+                 #    args['period']: period of oscillation of mass (should have time units)
+                 # acceleration is G M / r^2
+                 GM = const.G * args['massamplitude'] * (np.cos(2. * np.pi * time / args['period']) + 1.)
+                 d_pos = pos - args['pos']
+                 r2 = (d_pos**2).sum(axis=1)
+                 rhat = d_pos / np.sqrt(r2)
+                 return rhat * GM / r2
+                
+        To add the force from a particle at 10kpc on the x-axis with
+        a mass of 1e8 Msol that oscillates every 100 Myr::
+            mysimulation = Simulation()
+            mysimulation.add_external_timedependent_force(my_point_source_force, {'massamplitude':1e8*u.Msun,
+              'period':100*u.Myr, 'pos':np.array([10,0,0])*u.kpc})
+        
         """
 
         if isinstance(fn, list):
@@ -707,18 +717,16 @@ class Simulation(object):
 
 
     def add_external_velocitydependent_force(self, fn, args=None):
-        """Add a function that will return the force at a given position and velocity,
-        which will be added as an external force to the simulation on top
-        of the N-body force.
+        """Add an external velocity-dependent force to the simulation.
          
-        Options are:
-           1. A function that takes three arguments: an (Np,3) array of positions
-                (must be Quantities) that contains the positions where the accelerations
-                are to be calculated, an (Np,3) array of velocities (must be Quantities),
-                and an additional argument that is a dictionary containing any extra
-                parameters you need.
-                
-           2. A galpy potential object (must derive from galpy.potential.DissipativeForce).
+        Forces can be in the form of:
+        
+        1. A function that takes three arguments: an (Np,3) array of positions (must
+           be Quantities) that contains the positions where the accelerations
+           are to be calculated, an (Np,3) array of velocities (must be Quantities),
+           and an additional argument that is a dictionary containing any extra
+           parameters you need.
+        2. A galpy potential object (must derive from galpy.potential.DissipativeForce).
 
         You may add as many external forces as you want - they will be summed
         together along with the N-body force.
@@ -733,20 +741,20 @@ class Simulation(object):
         Example
         -------
         This function adds on an external force that goes in the opposite directly of the
-        current velocity of every particle with magnitude abs(velocity) / timescale given in args:
+        current velocity of every particle with magnitude abs(velocity) / timescale given in args::
          
-        def my_friction_force(pos, vel, args):
-           # args has 1 parameter:
-           #    args['t0']:  timescale (should have time units)
-           velmag = np.sqrt(np.sum(vel**2, axis=1))
-           forcemag = velmag / args['t0']
-           forcearray = -vel/velmag[:,np.newaxis] * forcemag[:,np.newaxis]
-           return forcearray
+            def my_friction_force(pos, vel, args):
+               # args has 1 parameter:
+               #    args['t0']:  timescale (should have time units)
+               velmag = np.sqrt(np.sum(vel**2, axis=1))
+               forcemag = velmag / args['t0']
+               forcearray = -vel/velmag[:,np.newaxis] * forcemag[:,np.newaxis]
+               return forcearray
            
-        Then to add a force that slows all particles down on a 100 Myr timescale:
+        Then to add a force that slows all particles down on a 100 Myr timescale::
          
-        mysimulation = Simulation()
-        mysimulation.add_external_velocitydependent_force(my_friction_force, {'t0':100*u.Myr})                
+            mysimulation = Simulation()
+            mysimulation.add_external_velocitydependent_force(my_friction_force, {'t0':100*u.Myr})                
 
         """
 
@@ -778,21 +786,21 @@ class Simulation(object):
         Parameters
         ----------
         newIC : dict
-           Properties of new particles to add. Must have the following key/value pairs:
-           'pos': an array of positions
-           'vel': an array of velocities
-           'mass': an array of masses
+        |   Properties of new particles to add. Must have the following key-value pairs:
+        |   ``pos``: an array of positions
+        |   ``vel``: an array of velocities
+        |   ``mass``: an array of masses
            All should be astropy Quantities, with shape (Np,3) or just (3) if a single particle.
 
         Example
         -------
-        To create a simulation object whose initial conditions consist of a
+        Create a simulation object whose initial conditions consist of a
         particle of mass 1e8 Msun at a position 10 kpc from the origin on
-        the x-axis, and a velocity of 200 km/s in the positive y-direction:
+        the x-axis, and a velocity of 200 km/s in the positive y-direction::
          
-        sim = Simulation()
-        sim.add_IC( {'pos':np.array([10,0,0])*u.kpc, 'vel':np.array([0,200,0])*u.km/u.s, 
-            'mass':np.array([1e8])*u.Msun} )
+            sim = Simulation()
+            sim.add_IC( {'pos':np.array([10,0,0])*u.kpc, 'vel':np.array([0,200,0])*u.km/u.s, 
+                'mass':np.array([1e8])*u.Msun} )
             
         See Also
         --------
@@ -825,7 +833,7 @@ class Simulation(object):
 
 
     def pyn_snap(self, timestep=None):
-        """Return snapshot given by the timestep as a pynbody snapshot.
+        """Return snapshot given by the timestep as a pynbody SimSnap.
         
         Parameters
         ----------
