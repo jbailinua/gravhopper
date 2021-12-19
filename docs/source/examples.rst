@@ -9,6 +9,7 @@ Examples
 #. :ref:`example_sample_galpy_df`
 #. :ref:`example_disk_particle_orbit`
 #. :ref:`example_galaxy_merger`
+#. :ref:`example_cosmo_snapshot`
 
 
 
@@ -256,5 +257,69 @@ there is significant amounts of two body scattering that destroys the disks::
     <video controls src="_static/example-merger-dm.mp4"></video>
 
     <video controls src="_static/example-merger-disks.mp4"></video>
-      
 
+      
+      
+.. _example_cosmo_snapshot:
+
+Initial conditions from cosmological simulation output
+------------------------------------------------------
+
+Read in the final snapshot of a GADGET cosmological simulation using ``pynbody``. Select a
+halo from it, and use that halo as the initial conditions for a non-cosmological 
+GravHopper simulation.
+
+First download the :download:`cosmological simulation snapshot <_static/cosmo-snapshot_020>`::
+
+    from gravhopper import Simulation, IC
+    from astropy import units as u
+    import matplotlib.pyplot as plt
+    import pynbody
+    
+    # Read in cosmological simulation snapshot, convert to kpc units
+    cosmo = pynbody.load('cosmo-snapshot_020')
+    cosmo.physical_units()
+    
+    # Pick out the halo we want
+    halo_center = [26750, 47500, 2600]
+    halo_rad = 3000
+    halo = cosmo[pynbody.filt.Sphere(halo_rad, halo_center)]
+
+    # Plot the original simulation and highlight the halo
+    fig = plt.figure(figsize=(5.3,5))
+    ax_xy = fig.add_subplot(223, aspect=1.0)
+    ax_xz = fig.add_subplot(221, aspect=1.0)
+    ax_yz = fig.add_subplot(224, aspect=1.0)
+    ax_xy.scatter(cosmo['pos'][:,0], cosmo['pos'][:,1], s=0.1, lw=0, color='black')
+    ax_xy.scatter(halo['pos'][:,0], halo['pos'][:,1], s=0.1, lw=0, color='red')
+    ax_xz.scatter(cosmo['pos'][:,0], cosmo['pos'][:,2], s=0.1, lw=0, color='black')
+    ax_xz.scatter(halo['pos'][:,0], halo['pos'][:,2], s=0.1, lw=0, color='red')
+    ax_yz.scatter(cosmo['pos'][:,2], cosmo['pos'][:,1], s=0.1, lw=0, color='black')
+    ax_yz.scatter(halo['pos'][:,2], halo['pos'][:,1], s=0.1, lw=0, color='red')
+    ax_xy.set_xlabel('x (kpc)')
+    ax_xy.set_ylabel('y (kpc)')
+    ax_xz.set_xticklabels([])
+    ax_xz.set_ylabel('z (kpc)')
+    ax_yz.set_xlabel('z (kpc)')
+    ax_yz.set_yticklabels([])
+    plt.tight_layout()
+    
+    # Create a simulation with this halo as IC and run
+    sim = Simulation(dt=20*u.Myr, eps=50*u.kpc)
+    halo_IC = IC.from_pyn_snap(halo)
+    sim.add_IC(halo_IC)
+    sim.run(200)
+    
+    # Make movie. Put lengths in Mpc and units in Gyr first
+    sim.positions = sim.positions.to(u.Mpc)
+    sim.times = sim.times.to(u.Gyr)
+    sim.movie_particles('cosmo-halo.mp4', timeformat='{0:.2f}')
+   
+.. image:: _static/example-cosmo-full.png
+
+.. raw:: html
+
+    <video controls src="_static/cosmo-halo.mp4"></video>
+
+
+    
