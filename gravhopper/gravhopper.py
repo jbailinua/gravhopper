@@ -166,6 +166,10 @@ class Simulation(object):
         ------
         ValueError
             If dt does not have dimensions of time.
+            
+        See also
+        --------
+        :meth:`~gravhopper.Simulation.get_dt` : Returns simulation time step.
         """
 
         try:
@@ -185,6 +189,10 @@ class Simulation(object):
         -------
         dt : Quantity
             Time step length
+
+        See also
+        --------
+        :meth:`~gravhopper.Simulation.set_dt` : Sets simulation time step.
         """
         return self.params['dt']
         
@@ -202,6 +210,10 @@ class Simulation(object):
         ------
         ValueError
             If eps does not have dimensions of length.
+
+        See also
+        --------
+        :meth:`~gravhopper.Simulation.get_eps` : Returns gravitational softening length.
         """
 
         try:
@@ -221,6 +233,10 @@ class Simulation(object):
         -------
         eps : Quantity
             Gravitational softening length
+
+        See also
+        --------
+        :meth:`~gravhopper.Simulation.set_eps` : Sets gravitational softening length.
         """
         return self.params['eps']
         
@@ -237,6 +253,10 @@ class Simulation(object):
         ------
         ValueError
             If algorithm is not 'tree' or 'direct'.
+
+        See also
+        --------
+        :meth:`~gravhopper.Simulation.get_algorithm` : Returns current gravitational force algorithm.
         """
         
         if algorithm in ('tree', 'direct'):
@@ -247,19 +267,23 @@ class Simulation(object):
 
         
     def get_algorithm(self):
-        """Returns simulation gravitational algorithm.
+        """Returns current simulation gravitational algorithm.
         
         Returns
         -------
         algorithm : str
             'direct' for direct summation, 'tree' for Barnes-Hut tree
+
+        See also
+        --------
+        :meth:`~gravhopper.Simulation.set_algorithm` : Sets the gravitational force algorithm.
         """
         return self.params['algorithm']
         
         
     def run(self, N=1):
         """Run N timesteps of the simulation. Will either initialize a simulation that has
-        not yet been run, continue from the last snapshot if it has.
+        not yet been run, or continue from the last snapshot if it has.
         
         Parameters
         ----------
@@ -350,9 +374,9 @@ class Simulation(object):
         Returns
         -------
         snap : dict
-            snap['pos'] is an (Np,3) array of positions
-            snap['vel'] is an (Np,3) array of velocities
-            snap['mass'] is a length-Np array of masses
+            * **snap['pos']** is an (Np,3) array of positions
+            * **snap['vel']** is an (Np,3) array of velocities
+            * **snap['mass']** is a length-Np array of masses
         """        
         return self.snap(self.timestep)
             
@@ -362,9 +386,9 @@ class Simulation(object):
         Returns
         -------
         snap : dict
-            snap['pos'] is an (Np,3) array of positions
-            snap['vel'] is an (Np,3) array of velocities
-            snap['mass'] is a length-Np array of masses
+            * **snap['pos']** is an (Np,3) array of positions
+            * **snap['vel']** is an (Np,3) array of velocities
+            * **snap['mass']** is a length-Np array of masses
         """        
         return self.snap(self.timestep-1)
 
@@ -608,6 +632,7 @@ class Simulation(object):
 
         To add the force from a particle at 10kpc on the x-axis with
         a mass of 1e8 Msun::
+        
             mysimulation = Simulation()
             mysimulation.add_external_force(my_point_source_force, {'mass':1e8*u.Msun,
               'pos':np.array([10,0,0])*u.kpc})
@@ -685,7 +710,8 @@ class Simulation(object):
                  return rhat * GM / r2
                 
         To add the force from a particle at 10kpc on the x-axis with
-        a mass of 1e8 Msol that oscillates every 100 Myr::
+        a mass of 10\ :sup:`8` M\ :sub:`sun` that oscillates every 100 Myr::
+        
             mysimulation = Simulation()
             mysimulation.add_external_timedependent_force(my_point_source_force, {'massamplitude':1e8*u.Msun,
               'period':100*u.Myr, 'pos':np.array([10,0,0])*u.kpc})
@@ -786,16 +812,18 @@ class Simulation(object):
         Parameters
         ----------
         newIC : dict
-        |   Properties of new particles to add. Must have the following key-value pairs:
-        |   ``pos``: an array of positions
-        |   ``vel``: an array of velocities
-        |   ``mass``: an array of masses
+           Properties of new particles to add. Must have the following key-value pairs:
+           
+           * **pos:** an array of positions                
+           * **vel:** an array of velocities
+           * **mass:** an array of masses
+                
            All should be astropy Quantities, with shape (Np,3) or just (3) if a single particle.
 
         Example
         -------
         Create a simulation object whose initial conditions consist of a
-        particle of mass 1e8 Msun at a position 10 kpc from the origin on
+        particle of mass 10\ :sup:`8` M\ :sub:`sun` at a position 10 kpc from the origin on
         the x-axis, and a velocity of 200 km/s in the positive y-direction::
          
             sim = Simulation()
@@ -1020,7 +1048,7 @@ class Simulation(object):
         
     
     def movie_particles(self, fname, fps=25, ax=None, skip=None, timeformat='{0:.1f}', *args, **kwargs):
-        """Create a movie of the particles using the plot_particles() function.
+        """Create a movie of the particles using the :meth:`~gravhopper.Simulation.plot_particles` function.
         
         Parameters
         ----------
@@ -1033,10 +1061,16 @@ class Simulation(object):
             create a new Axis object and closes the figure after the movie is made.
         skip : int, optional
             Skip every N frames (e.g. skip=5 only has 1/5th of the full number of frames).
+        xlim : array-like, optional
+            x limits of the movie (default: encompasses the full extent any particle
+            reaches)
+        ylim : array-like, optional
+            y limits of the movie (default: encompasses the full extent any particle
+            reaches)
         *args : object
-            Passed through to plot_particles()
+            Passed through to :meth:`~gravhopper.Simulation.plot_particles`
         **kwargs : dict
-            Passed through to plot_particles()
+            Passed through to :meth:`~gravhopper.Simulation.plot_particles`
         """
         
         # Create axis if necessary.
@@ -1090,27 +1124,11 @@ class Simulation(object):
 
         
 class IC(object):
-    """Namespace for holding static methods that define various ICs.
-    
-    Methods
-    -------
-    from_galpy_df(df, N=None, totmass=None, center_pos=None, center_vel=None, force_origin=True)
-        Create IC by sampling a galpy spherical distribution function object.
-    from_pyn_snap(pynsnap)
-        Create IC from a pynbody SimSnap.
-    TSIS(N=None, maxrad=None, totmass=None, center_pos=None, center_vel=None, force_origin=True, seed=None)
-        Create a Truncated Singular Isothermal Sphere IC.
-    Plummer(N=None, b=None, totmass=None, center_pos=None, center_vel=None, force_origin=True, seed=None)
-        Create an isotropic Plummer sphere IC.
-    Hernquist(N=None, a=None, totmass=None, cutoff=10., center_pos=None, center_vel=None, force_origin=True, seed=None)
-        Create an isotropic Hernquist model IC.
-    expdisk(sigma0=None, Rd=None, z0=None, sigmaR_Rd=None, external_rotcurve=None, N=None, center_pos=None, center_vel=None, force_origin=True, seed=None)
-        Create an exponential disk IC that is very approximately in equilibrium.
-    """
+    """Namespace for holding static methods that create a variety of initial conditions."""
     
     @staticmethod
     def from_galpy_df(df, N=None, totmass=None, center_pos=None, center_vel=None, force_origin=True):
-        """Sample a galpy sphericaldf DF object and return as an IC.
+        """Sample a galpy sphericaldf distribution function object and return as an IC.
         
         Parameters
         ----------
@@ -1126,8 +1144,8 @@ class IC(object):
             Force the mean velocity of the IC to have this velocity
         force_origin : bool
             Force the center of mass to be at the origin and the mean velocity to be zero;
-            equivalent to setting center_pos=np.array([0,0,0])*u.kpc and
-            center_vel=np.array([0,0,0])*u.km/u.s. Default is True unless center_pos and
+            equivalent to setting center_pos=[0,0,0]*u.kpc and
+            center_vel=[0,0,0]*u.km/u.s. Default is True unless center_pos and
             center_vel is set. If force_origin is True and only one of center_pos or
             center_vel is set, the other is set to zero.
             
@@ -1136,42 +1154,46 @@ class IC(object):
         IC : dict
            Properties of new particles to add, which sample the given distribution function. Contains
            the following key/value pairs:
-           'pos': an array of positions
-           'vel': an array of velocities
-           'mass': an array of masses
+           
+           * **pos:** an array of positions
+           * **vel:** an array of velocities
+           * **mass:** an array of masses
+           
            Each are astropy Quantities, with shape (Np,3).
+            
+        Note
+        ----
+        Up to at least galpy v1.7, galpy df objects don't fully incorporate astropy Quantity inputs and
+        outputs. Therefore, it is recommended that you define any relevant potential using
+        the default ro=8, vo=220 unit system, turn off physical output for the potential,
+        create the df object from the potential, use ``from_galpy_df()`` to create the ICs,
+        and then turn physical output back on again afterwards if needed (see Example). 
+        
             
         Example
         -------
-        Sample an NFW halo with scale radius 20 kpc, scale amplitude 2e11 solar masses, and a maximum
-        radius of 1 Mpc with 10,000 particles:
+        Sample an NFW halo with scale radius 20 kpc, scale amplitude 2x10\ :sup:`11` solar masses, and a maximum
+        radius of 1 Mpc with 10,000 particles::
         
-          from astropy import units as u
-          from galpy import potential, df
-        
-          NFWamp = 2e11 * u.Msun
-          NFWrs = 20 * u.kpc
-          ro = 8.
-          vo = 220.
-          rmax = 1 * u.Mpc
-          rmax_over_ro = (rmax/(ro*u.kpc)).to(1).value
-          Nhalo = 10000
-          NFWpot = potential.NFWNFWPotential(amp=NFWamp, a=NFWrs)
-          NFWmass = potential.mass(NFWpot, rmax)
-          potential.turn_physical_off(NFWpot)
-          NFWdf = df.isotropicNFWdf(pot=NFWpot, rmax=rmax_over_ro)
+              from astropy import units as u
+              from galpy import potential, df
+    
+              NFWamp = 2e11 * u.Msun
+              NFWrs = 20 * u.kpc
+              ro = 8.
+              vo = 220.
+              rmax = 1 * u.Mpc
+              rmax_over_ro = (rmax/(ro*u.kpc)).to(1).value
+              Nhalo = 10000
+              NFWpot = potential.NFWPotential(amp=NFWamp, a=NFWrs)
+              NFWmass = potential.mass(NFWpot, rmax)
+              potential.turn_physical_off(NFWpot)
+              NFWdf = df.isotropicNFWdf(pot=NFWpot, rmax=rmax_over_ro)
 
-          halo_IC = IC.from_galpy_df(NFWdf, N=Nhalo, totmass=NFWmass)  
-          
-          potential.turn_physical_on(NFWpot)   # optional if needed later      
+              halo_IC = IC.from_galpy_df(NFWdf, N=Nhalo, totmass=NFWmass)  
+      
+              potential.turn_physical_on(NFWpot)   # optional if needed later      
             
-        Notes
-        -----
-        As of galpy version 1.7.0, the df module does not return unitful quantities consistently.
-        The recommended use is to define any relevantpotential  using the ro=8, vo=220 unit system,
-        turn physical output for the potential off, cerate the df object from the potential,
-        use from_galpy_df() to create the ICs, and then turn physical output back on
-        if desired (see Example).
         
         Raises
         ------
@@ -1220,10 +1242,16 @@ class IC(object):
         IC : dict
            Properties of new particles to add, which sample the given distribution function. Contains
            the following key/value pairs:
-           'pos': an array of positions
-           'vel': an array of velocities
-           'mass': an array of masses
+           
+           * **pos:** an array of positions
+           * **vel:** an array of velocities
+           * **mass:** an array of masses
+           
            Each are astropy Quantities, with shape (Np,3).
+
+        Note
+        ----
+        The IC will be converted into the kpc-km/s-Msun unit system.
            
         Raises
         ------
@@ -1275,8 +1303,8 @@ class IC(object):
             Force the mean velocity of the IC to have this velocity
         force_origin : bool
             Force the center of mass to be at the origin and the mean velocity to be zero;
-            equivalent to setting center_pos=np.array([0,0,0])*u.kpc and
-            center_vel=np.array([0,0,0])*u.km/u.s. Default is True unless center_pos and
+            equivalent to setting center_pos=[0,0,0]*u.kpc and
+            center_vel=[0,0,0]*u.km/u.s. Default is True unless center_pos and
             center_vel is set. If force_origin is True and only one of center_pos or
             center_vel is set, the other is set to zero.
         seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}, optional
@@ -1287,17 +1315,20 @@ class IC(object):
         IC : dict
            Properties of new particles to add, which sample the given distribution function. Contains
            the following key/value pairs:
-           'pos': an array of positions
-           'vel': an array of velocities
-           'mass': an array of masses
+           
+           * **pos:** an array of positions
+           * **vel:** an array of velocities
+           * **mass:** an array of masses
+           
            Each are astropy Quantities, with shape (Np,3).
 
         Example
         -------
-        To create a truncated singular isothermal sphere with a total mass of 1e11 solar masses,
-        a truncation radius of 100 kpc, sampled with 10,000 particles:
+        To create a truncated singular isothermal sphere with a total mass of 10\ :sup:`11` solar masses,
+        a truncation radius of 100 kpc, sampled with 10,000 particles::
         
-        particles = IC.TSiS(N=10000, maxrad=100*u.kpc, totmass=1e11*u.Msun)
+            particles = IC.TSiS(N=10000, maxrad=100*u.kpc, totmass=1e11*u.Msun)
+            
         """
 
         if (N is None) or (maxrad is None) or (totmass is None):
@@ -1346,8 +1377,8 @@ class IC(object):
             Force the mean velocity of the IC to have this velocity
         force_origin : bool
             Force the center of mass to be at the origin and the mean velocity to be zero;
-            equivalent to setting center_pos=np.array([0,0,0])*u.kpc and
-            center_vel=np.array([0,0,0])*u.km/u.s. Default is True unless center_pos and
+            equivalent to setting center_pos=[0,0,0]*u.kpc and
+            center_vel=[0,0,0]*u.km/u.s. Default is True unless center_pos and
             center_vel is set. If force_origin is True and only one of center_pos or
             center_vel is set, the other is set to zero.
         seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}, optional
@@ -1358,17 +1389,20 @@ class IC(object):
         IC : dict
            Properties of new particles to add, which sample the given distribution function. Contains
            the following key/value pairs:
-           'pos': an array of positions
-           'vel': an array of velocities
-           'mass': an array of masses
+           
+           * **pos:** an array of positions
+           * **vel:** an array of velocities
+           * **mass:** an array of masses
+           
            Each are astropy Quantities, with shape (Np,3).
            
         Example
         -------
-        To create a Plummer sphere with scale radius 1 pc and a total mass of 1e6 Msun sampled
-        with 10,000 particles:
+        To create a Plummer sphere with scale radius 1 pc and a total mass of 10\ :sup:`6` M\ :sub:`sun`
+        sampled with 10,000 particles::
         
-        particles = IC.Plummer(N=10000, b=1*u.pc, totmass=1e6*u.Msun)
+            particles = IC.Plummer(N=10000, b=1*u.pc, totmass=1e6*u.Msun)
+            
         """
 
         if (N is None) or (b is None) or (totmass is None):
@@ -1438,8 +1472,8 @@ class IC(object):
             Force the mean velocity of the IC to have this velocity
         force_origin : bool
             Force the center of mass to be at the origin and the mean velocity to be zero;
-            equivalent to setting center_pos=np.array([0,0,0])*u.kpc and
-            center_vel=np.array([0,0,0])*u.km/u.s. Default is True unless center_pos and
+            equivalent to setting center_pos=[0,0,0]*u.kpc and
+            center_vel=[0,0,0]*u.km/u.s. Default is True unless center_pos and
             center_vel is set. If force_origin is True and only one of center_pos or
             center_vel is set, the other is set to zero.
         seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}, optional
@@ -1450,17 +1484,20 @@ class IC(object):
         IC : dict
            Properties of new particles to add, which sample the given distribution function. Contains
            the following key/value pairs:
-           'pos': an array of positions
-           'vel': an array of velocities
-           'mass': an array of masses
+           
+           * **pos:** an array of positions
+           * **vel:** an array of velocities
+           * **mass:** an array of masses
+           
            Each are astropy Quantities, with shape (Np,3).
            
         Example
         -------
-        To create a Hernquist sphere with a total mass of 1e10 solar masses, a scale radius
-        of 1 kpc, sampled with 10,000 particles:
+        To create a Hernquist sphere with a total mass of 10\ :sup:`10` solar masses, a scale radius
+        of 1 kpc, sampled with 10,000 particles::
         
-        particles = IC.Hernquist(N=10000, a=1*u.kpc, totmass=1e10*u.Msun)
+            particles = IC.Hernquist(N=10000, a=1*u.kpc, totmass=1e10*u.Msun)
+            
         """
          
         rng = np.random.default_rng(seed)
@@ -1558,8 +1595,8 @@ class IC(object):
             Force the mean velocity of the IC to have this velocity
         force_origin : bool
             Force the center of mass to be at the origin and the mean velocity to be zero;
-            equivalent to setting center_pos=np.array([0,0,0])*u.kpc and
-            center_vel=np.array([0,0,0])*u.km/u.s. Default is True unless center_pos and
+            equivalent to setting center_pos=[0,0,0]*u.kpc and
+            center_vel=[0,0,0]*u.km/u.s. Default is True unless center_pos and
             center_vel is set. If force_origin is True and only one of center_pos or
             center_vel is set, the other is set to zero.
         seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}, optional
@@ -1570,19 +1607,22 @@ class IC(object):
         IC : dict
            Properties of new particles to add, which sample the given distribution function. Contains
            the following key/value pairs:
-           'pos': an array of positions
-           'vel': an array of velocities
-           'mass': an array of masses
+           
+           * **pos:** an array of positions
+           * **vel:** an array of velocities
+           * **mass:** an array of masses
+           
            Each are astropy Quantities, with shape (Np,3).
            
         Example
         -------
         To create an exponential disk that is in a background logarithmic halo potential that
-        generates a flat rotation curve of 200 km/s:
+        generates a flat rotation curve of 200 km/s::
         
-        particles = IC.expdisk(N=10000, sigma0=200*u.Msun/u.pc**2, Rd=2*u.kpc,
+            particles = IC.expdisk(N=10000, sigma0=200*u.Msun/u.pc**2, Rd=2*u.kpc,
                 z0=0.5*u.kpc, sigmaR_Rd=10*u.km/u.s,
-                external_rotcurve=lambda x: (200*u.km/u.s)**2 / x)
+                external_rotcurve=lambda x: 200*u.km/u.s)
+                
         """
                 
         rng = np.random.default_rng(seed)
