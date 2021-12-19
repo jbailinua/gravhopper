@@ -1,13 +1,26 @@
 #!/usr/bin/py
 
-# GravHopper
+"""
+GravHopper
+==========
 
-# This is a very simple gravitational N-body simulator.
-# Can take advantage of galpy or gala potentials, and pynbody
-# snapshot outputs.
+A package for performing N-body simulations in Python, named in honor of Grace Hopper.
 
-# Written by Jeremy Bailin, University of Alabama
-# First initial last name at ua dot edu
+Written by Jeremy Bailin, University of Alabama
+First initial last name at ua dot edu
+
+Contains the following classes:
+
+Simulation : Main class for creating and performing an N-body simulation.
+
+IC : Static functions for generating a variety of useful initial conditions for
+N-body simulations.
+
+grav : Module containing the functions that calculate the N-body forces.
+
+GravHopperException : Exceptions raised within GravHopper
+"""
+
 
 from . import jbgrav
 import numpy as np
@@ -67,22 +80,50 @@ class ExternalPackageException(GravHopperException):
 
 
 class Simulation(object):
-    """Main class for N-body simulation."""
+    """Main class for N-body simulation.
+    
+    Attributes
+    ----------
+    Np : int
+        Number of particles
+    Nsnap : int
+        Number of snapshots
+    positions : Quantity array of dimension (Nsnap,Np,3)
+        numpy array of the positions of each particle at each snapshot
+    velocities : Quantity array of dimension (Nsnap,Np,3)
+        numpy array of the velocities of each particle at each snapshot
+    masses : Quantity array of length Np
+        numpy array of the masses of each particle
+    times : Quantity array of length Nsnap
+        numpy array of the time of each snapshot
+    lenunit : Unit
+        Default internal length unit
+    velunit : Unit
+        Default internal velocity unit
+    accelunit : Unit
+        Default internal acceleration unit
+    """
     
     def __init__(self, dt=1*u.Myr, eps=100*u.pc, algorithm='tree'):
-        """Initializes class variables, including defaults.
+        """Initializes Simulation object.
+        
+        Parameters
+        ----------
+        dt : Quantity
+            Time step length. Default: 1 Myr
+        eps : Quantity
+            Gravitational softening length. Default: 100 pc
+        algorithm : str ('tree' or 'direct')
+            Gravitational force calculation algorithm. Default: 'tree'
 
-           Parameters that can be overridden:
-            dt: Time step (Astropy Quantity. Default: 1 Myr).
-            eps: Gravitational softening length (Astropy Quantity: 100 pc).
-            algorithm: N-body force calculation algorithm (default: 'tree').
-                         Other options: 'direct'
-
-           Example, to create a new simulation with a timestep of 1 year:
-           sim = Simulation(dt=1.0*u.yr)"""
+        Example
+        -------
+        To create a new simulation with a timestep of 1 year::
+        
+            sim = Simulation(dt=1.0*u.yr)
+        """
 
         self.ICarrays = False
-        self.IC = False
         self.Np = 0
         self.Nsnap = 0
         self.timestep = 0
@@ -114,7 +155,23 @@ class Simulation(object):
 
       
     def set_dt(self, dt):
-        """Sets the simulation time step. Should be Astropy Quantity of dimension time."""
+        """Sets the simulation time step.
+        
+        Parameters
+        ----------
+        dt : Quantity with dimensions of time
+            Time step length
+            
+        Raises
+        ------
+        ValueError
+            If dt does not have dimensions of time.
+            
+        See also
+        --------
+        :meth:`~gravhopper.Simulation.get_dt` : Returns simulation time step.
+        """
+
         try:
             # Make sure that it has dimensions of time
             _ = dt.to(u.Myr)
@@ -123,15 +180,42 @@ class Simulation(object):
             
         self.params['dt'] = dt
         return
+
         
     def get_dt(self):
-        """Returns simulation time step."""
+        """Returns simulation time step.
+        
+        Returns
+        -------
+        dt : Quantity
+            Time step length
+
+        See also
+        --------
+        :meth:`~gravhopper.Simulation.set_dt` : Sets simulation time step.
+        """
         return self.params['dt']
         
         
         
     def set_eps(self, eps):
-        """Sets the simulation gravitational softening length. Should be Astropy Quantity of dimension length."""
+        """Sets the simulation gravitational softening length.
+        
+        Parameters
+        ----------
+        eps : Quantity with dimensions of length
+            Gravitational softening length
+            
+        Raises
+        ------
+        ValueError
+            If eps does not have dimensions of length.
+
+        See also
+        --------
+        :meth:`~gravhopper.Simulation.get_eps` : Returns gravitational softening length.
+        """
+
         try:
             # Make sure that it has dimensions of length
             _ = eps.to(u.kpc)
@@ -140,28 +224,72 @@ class Simulation(object):
             
         self.params['eps'] = eps
         return
+
         
     def get_eps(self):
-        """Returns simulation gravitational softening length."""
+        """Returns simulation gravitational softening length.
+        
+        Returns
+        -------
+        eps : Quantity
+            Gravitational softening length
+
+        See also
+        --------
+        :meth:`~gravhopper.Simulation.set_eps` : Sets gravitational softening length.
+        """
         return self.params['eps']
         
         
     def set_algorithm(self, algorithm):
-        """Sets the gravitational algorithm for the simulation. Should be 'tree' or 'direct'."""
+        """Sets the simulation gravitational force algorithm.
+        
+        Parameters
+        ----------
+        algorithm : str ('tree' or 'direct')
+            Direct summation or Barnes-Hut tree algorithm
+            
+        Raises
+        ------
+        ValueError
+            If algorithm is not 'tree' or 'direct'.
+
+        See also
+        --------
+        :meth:`~gravhopper.Simulation.get_algorithm` : Returns current gravitational force algorithm.
+        """
+        
         if algorithm in ('tree', 'direct'):
             self.params['algorithm'] = algorithm
         else:
             raise ValueError("algorithm must be 'tree' or 'direct'.")
         return
+
         
     def get_algorithm(self):
-        """Returns simulation gravitational algorithm."""
+        """Returns current simulation gravitational algorithm.
+        
+        Returns
+        -------
+        algorithm : str
+            'direct' for direct summation, 'tree' for Barnes-Hut tree
+
+        See also
+        --------
+        :meth:`~gravhopper.Simulation.set_algorithm` : Sets the gravitational force algorithm.
+        """
         return self.params['algorithm']
         
         
     def run(self, N=1):
         """Run N timesteps of the simulation. Will either initialize a simulation that has
-        not yet been run, or add onto the end of an already-run simulation."""
+        not yet been run, or continue from the last snapshot if it has.
+        
+        Parameters
+        ----------
+        N : int
+            Number of time steps to perform
+        """
         
         # Initialize if first timestep, expand arrays for output if not
         if self.running==False:
@@ -222,17 +350,48 @@ class Simulation(object):
         
 
     def snap(self, step):
-        """Return the given snapshot as a dict with entries 'pos', 'vel', and 'mass'."""
+        """Return the given snapshot.
+        
+        Parameters
+        ----------
+        step : int
+            Time step to return
+            
+        Returns
+        -------
+        snap : dict
+            snap['pos'] is an (Np,3) array of positions
+            snap['vel'] is an (Np,3) array of velocities
+            snap['mass'] is a length-Np array of masses
+        """
         return {'pos':self.positions[step, :, :], 'vel':self.velocities[step, :, :], \
             'mass':self.masses[:]}
+
                 
     def current_snap(self):
-        """Return the current snapshot as a dict with entries 'pos', 'vel', and 'mass'."""
+        """Return the current snapshot.
+        
+        Returns
+        -------
+        snap : dict
+            * **snap['pos']** is an (Np,3) array of positions
+            * **snap['vel']** is an (Np,3) array of velocities
+            * **snap['mass']** is a length-Np array of masses
+        """        
         return self.snap(self.timestep)
             
     def prev_snap(self):
-        """Return the snapshot before the current snapshot as a dict with entries 'pos', 'vel', and 'mass'."""
+        """Return the snapshot before the current snapshot.
+        
+        Returns
+        -------
+        snap : dict
+            * **snap['pos']** is an (Np,3) array of positions
+            * **snap['vel']** is an (Np,3) array of velocities
+            * **snap['mass']** is a length-Np array of masses
+        """        
         return self.snap(self.timestep-1)
+
 
     def perform_timestep(self):
         """Advance the N-body simulation by one snapshot using a DKD leapfrog integrator."""
@@ -249,8 +408,25 @@ class Simulation(object):
         
         
     def calculate_acceleration(self, time=None):
-        """Calculate acceleration due to gravitational N-body force, plus any external
-         forces that have been added."""
+        """Calculate acceleration for particle positions at current_snap() due to gravitational N-body force, plus any external
+        forces that have been added.
+         
+        Parameters
+        ----------
+        time : Quantity
+            Time at which to calculate any time-dependent external forces. Default: None
+            
+        Returns
+        -------
+        acceleration : array
+            An (Np,3) numpy array of the acceleration vector calculated for each particle
+         
+        Raises
+        ------
+        UnknownAlgorithmException
+            If the algorithm parameter is not 'tree' or 'direct'
+        """
+        
         # gravity
         # If there is only one particle, there is no force, and the C code will give
         # a divide by zero... so just force a zero.
@@ -272,6 +448,7 @@ class Simulation(object):
         totaccel = nbody_gravity + extra_accel
         
         return totaccel
+        
         
     def calculate_extra_acceleration(self, pos, template_array, time=None, vel=None):
         """Calculates the acceleration just due to external added forces."""
@@ -418,39 +595,49 @@ class Simulation(object):
 
 
     def add_external_force(self, fn, args=None):
-        """Add a function that will return the force at a given position,
-         which will be added as an external force to the simulation on top
-         of the N-body force.
-         
-         Options are:
-           1. A function that takes two arguments: an (Np,3) array of positions
-                (must be Quantities) that contains the positions where the accelerations
-                are to be calculated, and an additional argument that is a dictionary
-                containing any extra parameters you need.
-                
-           2. A galpy potential object.
-           
-           3. A gala Potential object.
+        """Add an external position-dependent force to the simulation.
+ 
+        Forces can be in the form of:
+        
+        1. A function that takes two arguments: an (Np,3) array of positions
+           (must be Quantities) that contains the positions where the accelerations
+           are to be calculated, and an additional argument that is a dictionary
+           containing any extra parameters you need.
 
-         You may add as many external forces as you want - they will be summed
-         together along with the N-body force.
+        2. A galpy potential object.
+
+        3. A gala Potential object.
+
+        You may add as many external forces as you want - they will be summed
+        together along with the N-body force.
+
+        Parameters
+        ----------
+        fn : function or galpy potential.Potential object or gala potential.PotentialBase object
+            External force function to add
+        args : dict
+            Any extra parameters that should be passed to the function when it is called
+            
+        Example
+        -------
+        This function calculates an external force from a single point source::
+
+            def my_point_source_force(pos, args):
+                 # acceleration is G M / r^2
+                 GM = const.G * args['mass']
+                 d_pos = pos - args['pos']
+                 r2 = (d_pos**2).sum(axis=1)
+                 rhat = d_pos / np.sqrt(r2)
+                 return rhat * GM / r2
+
+        To add the force from a particle at 10kpc on the x-axis with
+        a mass of 1e8 Msun::
         
-         For example, here is a function that would add on an external force
-         from a single point source:
-        
-         def my_point_source_force(pos, args):
-             # acceleration is G M / r^2
-             GM = const.G * args['mass']
-             d_pos = pos - args['pos']
-             r2 = (d_pos**2).sum(axis=1)
-             rhat = d_pos / np.sqrt(r2)
-             return rhat * GM / r2
-        
-         Then to add the force from a particle at 10kpc on the x-axis with
-         a mass of 1e8 Msun, you would do the following:
-          mysimulation = Simulation()
-          mysimulation.add_external_force(my_point_source_force, {'mass':1e8*u.Msun,
+            mysimulation = Simulation()
+            mysimulation.add_external_force(my_point_source_force, {'mass':1e8*u.Msun,
               'pos':np.array([10,0,0])*u.kpc})
+          
+        
         """    
               
         if isinstance(fn, list):
@@ -479,43 +666,56 @@ class Simulation(object):
 
 
     def add_external_timedependent_force(self, fn, args=None):
-        """Add a function that will return the force at a given position and time,
-         which will be added as an external force to the simulation on top
-         of the N-body force.
+        """Add an external time-dependent force to the simulation.
          
-         Options are:
-           1. A function that takes three arguments: an (Np,3) array of positions
-                (must be Quantities) that contains the positions where the accelerations
-                are to be calculated, a scalar time, and an additional argument that is a
-                dictionary containing any extra parameters you need.
+        Forces can be in the form of:
+        
+        1. A function that takes three arguments: an (Np,3) array of positions (must be
+           Quantities) that contains the positions where the accelerations are to be 
+           calculated, a scalar time, and an additional argument that is a dictionary 
+           containing any extra parameters you need.
                 
-           2. A galpy potential object.
+        2. A galpy potential object.
            
-           3. A gala Potential object.
+        3. A gala Potential object.
 
-         You may add as many external forces as you want - they will be summed
-         together along with the N-body force.
+        You may add as many external forces as you want - they will be summed
+        together along with the N-body force.
         
-         For example, here is a function that would add on an external force
-         from a single point source whose mass oscilllates in time:
+              
+        Parameters
+        ----------
+        fn : function or galpy potential.Potential object or gala potential.PotentialBase object
+            External force function to add
+        args : dict
+            Any extra parameters that should be passed to the function when it is called              
+
+
+        Example
+        -------
         
-         def my_oscillating_point_source_force(pos, time, args):
-             # args has 3 parameters:
-             #    args['pos']: position of mass
-             #    args['massamplitude']: amplitude of oscillating mass (should have mass units)
-             #    args['period']: period of oscillation of mass (should have time units)
-             # acceleration is G M / r^2
-             GM = const * args['massamplitude'] * (np.cos(2. * np.pi * time / args['period']) + 1.)
-             d_pos = pos - args['pos']
-             r2 = (d_pos**2).sum(axis=1)
-             rhat = d_pos / np.sqrt(r2)
-             return rhat * GM / r2
+        This function calculates an external force
+        from a single point source whose mass oscilllates in time::
+        
+            def my_oscillating_point_source_force(pos, time, args):
+                 # args has 3 parameters:
+                 #    args['pos']: position of mass
+                 #    args['massamplitude']: amplitude of oscillating mass (should have mass units)
+                 #    args['period']: period of oscillation of mass (should have time units)
+                 # acceleration is G M / r^2
+                 GM = const.G * args['massamplitude'] * (np.cos(2. * np.pi * time / args['period']) + 1.)
+                 d_pos = pos - args['pos']
+                 r2 = (d_pos**2).sum(axis=1)
+                 rhat = d_pos / np.sqrt(r2)
+                 return rhat * GM / r2
                 
-         Then to add the force from a particle at 10kpc on the x-axis with
-         a mass of 1e8 Msol that oscillates every 100 Myr, you would do the following:
-          mysimulation = Simulation()
-          mysimulation.add_external_timedependent_force(my_point_source_force, {'massamplitude':1e8*u.Msun,
+        To add the force from a particle at 10kpc on the x-axis with
+        a mass of 10\ :sup:`8` M\ :sub:`sun` that oscillates every 100 Myr::
+        
+            mysimulation = Simulation()
+            mysimulation.add_external_timedependent_force(my_point_source_force, {'massamplitude':1e8*u.Msun,
               'period':100*u.Myr, 'pos':np.array([10,0,0])*u.kpc})
+        
         """
 
         if isinstance(fn, list):
@@ -543,39 +743,45 @@ class Simulation(object):
 
 
     def add_external_velocitydependent_force(self, fn, args=None):
-        """Add a function that will return the force at a given position and velocity,
-         which will be added as an external force to the simulation on top
-         of the N-body force.
+        """Add an external velocity-dependent force to the simulation.
          
-         Options are:
-           1. A function that takes three arguments: an (Np,3) array of positions
-                (must be Quantities) that contains the positions where the accelerations
-                are to be calculated, an (Np,3) array of velocities (must be Quantities),
-                and an additional argument that is a dictionary containing any extra
-                parameters you need.
-                
-           2. A galpy potential object (must derive from galpy.potential.DissipativeForce).
-
-         You may add as many external forces as you want - they will be summed
-         together along with the N-body force.
+        Forces can be in the form of:
         
-         For example, here is a function that would add on an external force
-         that goes in the opposite directly of the current velocity of every particle
-         with magnitude |velocity| / timescale given in args:
+        1. A function that takes three arguments: an (Np,3) array of positions (must
+           be Quantities) that contains the positions where the accelerations
+           are to be calculated, an (Np,3) array of velocities (must be Quantities),
+           and an additional argument that is a dictionary containing any extra
+           parameters you need.
+        2. A galpy potential object (must derive from galpy.potential.DissipativeForce).
+
+        You may add as many external forces as you want - they will be summed
+        together along with the N-body force.
+        
+        Parameters
+        ----------
+        fn : function or galpy.potential.DissipativeForcePotential object
+            External force function to add
+        args : dict
+            Any extra parameters that should be passed to the function when it is called
+
+        Example
+        -------
+        This function adds on an external force that goes in the opposite directly of the
+        current velocity of every particle with magnitude abs(velocity) / timescale given in args::
          
-         def my_friction_force(pos, vel, args):
-           # args has 1 parameter:
-           #    args['t0']:  timescale (should have time units)
-           velmag = np.sqrt(np.sum(vel**2, axis=1))
-           forcemag = velmag / args['t0']
-           forcearray = -vel/velmag[:,np.newaxis] * forcemag[:,np.newaxis]
-           return forcearray
+            def my_friction_force(pos, vel, args):
+               # args has 1 parameter:
+               #    args['t0']:  timescale (should have time units)
+               velmag = np.sqrt(np.sum(vel**2, axis=1))
+               forcemag = velmag / args['t0']
+               forcearray = -vel/velmag[:,np.newaxis] * forcemag[:,np.newaxis]
+               return forcearray
            
-         Then to add a force that slows all particles down on a 100 Myr timescale,
-         you would do the following:
+        Then to add a force that slows all particles down on a 100 Myr timescale::
          
-         mysimulation = Simulation()
-         mysimulation.add_external_velocitydependent_force(my_friction_force, {'t0':100*u.Myr})                
+            mysimulation = Simulation()
+            mysimulation.add_external_velocitydependent_force(my_friction_force, {'t0':100*u.Myr})                
+
         """
 
         if isinstance(fn, list):
@@ -601,21 +807,33 @@ class Simulation(object):
 
 
     def add_IC(self, newIC):
-        """Add particles to the initial conditions.
-         newIC must be a dict with the following key/value pairs:
-           'pos': an array of positions
-           'vel': an array of velocities
-           'mass': an array of masses
-         All should be astropy Quantities, with shape (Np,3) or just (3) if a single particle.
+        """Adds particles to the initial conditions.
+        
+        Parameters
+        ----------
+        newIC : dict
+           Properties of new particles to add. Must have the following key-value pairs:
+           
+           * **pos:** an array of positions                
+           * **vel:** an array of velocities
+           * **mass:** an array of masses
+                
+           All should be astropy Quantities, with shape (Np,3) or just (3) if a single particle.
 
-         For example, if you have a Simulation object sim, then to add one
-         particle of mass 1e8 Msun at a position 10 kpc from the origin on
-         the x-axis, and a velocity of 200 km/s in the positive y-direction:
+        Example
+        -------
+        Create a simulation object whose initial conditions consist of a
+        particle of mass 10\ :sup:`8` M\ :sub:`sun` at a position 10 kpc from the origin on
+        the x-axis, and a velocity of 200 km/s in the positive y-direction::
          
-         sim.add_IC( {'pos':np.array([10,0,0])*u.kpc, 'vel':np.array([0,200,0])*u.km/u.s, 
-            'mass':np.array([1e8])*u.Msun} )
-
-         See the functions in jbnbody.IC for other examples."""
+            sim = Simulation()
+            sim.add_IC( {'pos':np.array([10,0,0])*u.kpc, 'vel':np.array([0,200,0])*u.km/u.s, 
+                'mass':np.array([1e8])*u.Msun} )
+            
+        See Also
+        --------
+        IC : Class containing static functions that generate initial conditions that can be added using add_IC().
+        """
 
         #sanity check that all pieces are there and have the same number of particles
         if 'pos' not in newIC:
@@ -643,8 +861,29 @@ class Simulation(object):
 
 
     def pyn_snap(self, timestep=None):
-        """Return snapshot given by the timestep as a pynbody snapshot. Gives final
-        snapshot if timestep is None."""
+        """Return snapshot given by the timestep as a pynbody SimSnap.
+        
+        Parameters
+        ----------
+        timestep : int
+            Snapshot number to return. Returns final snapshot if timestep is None (default: None)
+        
+        Returns
+        -------
+        sim : pynbody SimSnap
+            Snapshot
+            
+        Notes
+        -----
+        Returned snapshot will have length units of Unit("kpc"), velocity units of Unit("km s**-1"),
+        and mass units of Unit("Msol").
+        
+        Raises
+        ------
+        ExternalPackageException
+            If pynbody could not be imported.
+        
+        """
         
         if USE_PYNBODY:
             if timestep is None:
@@ -680,27 +919,41 @@ class Simulation(object):
         """
         Scatter plot of particle positions or velocities for a snapshot.
     
-        Parameters:
-            parm:       'pos' or 'vel' to plot particles positions or velocities. Default: 'pos'
-            coords:     'xy', 'xz', or 'yz' to plot the various projections. Default: 'xy'
-            snap:       Which snapshot to plot. Either a snapshot number, 'final' for the last
-                            snapshot, or 'IC' for initial conditions. Default: 'final'
-            xlim:       xrange of plot, or None for matplotlib choice. Default: None
-            ylim:       yrange of plot, or None for matplotlib choice. Default: None
-            s:          Scatter plot size. Default: 0.2
-            unit:       Unit for x and y axes. Default: Unit of self.positions or self.velocities.
-            ax:         matplotlib Axis to plot on. If None, uses plt.subplot(111, aspect=1.0) to create one.
-                            Default: None.
-            timeformat: Format string for snapshot time in title, or False for no title. Useful for designating the
-                            number of decimals that will make sense, (e.g. '{0:.1f}' for one
-                            decimal place). Default: '{0:.1f}'
-            nolabels:   Do not label axes. Default: False
-            particle_range: 2-element array-like, or None. Only plot particles with indices between
-                            particle_range[0] and particle_range[1]-1.
+        Parameters
+        ----------
+        parms : str
+            'pos' or 'vel' to plot particle positions or velocities (default: 'pos')
+        coords : str
+            'xy', 'xz', or 'yz' to plot the different Cartesian projections (default 'xy')
+        snap : int or str
+            Which snapshot to plot. Either a snapshot number, 'final' for the last snapshot,
+            or 'IC' for the initial conditions (default: 'final')
+        xlim : array-like, optional
+            x limits of plot
+        ylim : array-like, optional
+            y limits of plot
+        s : float
+            Scatter plot point size (default: 0.2)
+        unit: astropy Unit, optional
+            Plot the quantities in the given unit system. The default is whatever units
+            the positions or velocities array is in, which is kpc or km/s by default but
+            can be changed.
+        ax : matplotlib Axis, optional
+            Axis on which to plot. If missing or None, uses plt.subplot(111, aspect=1.0) to
+            create a new Axis object.
+        timeformat : str or False
+            Format string for snapshot time in title, or False for no title (default: '{0:.1f}')
+        nolabels : bool, optional
+            If True, do not label x and y axes (default: False)
+        particle_range: array-like, optional
+            Only plot particles with indices in the slice particle_range[0]:particle_range[1]
+        **kwargs : dict
+            All additional keyword arguments are passed onto plt.scatter()
             
-        Any additional keyword arguments are passed onto plt.scatter()
-                        
-        Returns the scatter plot.
+        Returns
+        -------
+        scatter : matplotlib PathCollection
+            The scatter plot
         """
 
         # Create axis if necessary.
@@ -763,18 +1016,18 @@ class Simulation(object):
             
             ax.set_xlabel('${0}$ ({1})'.format(xlabel, str(unit)))
             ax.set_ylabel('${0}$ ({1})'.format(ylabel, str(unit)))
-        self.plot_particles_settitle(ax, snapnum, timeformat)
+        self._plot_particles_settitle(ax, snapnum, timeformat)
                                 
         return output
         
 
-    def plot_particles_settitle(self, ax, snapnum, timeformat=False):
+    def _plot_particles_settitle(self, ax, snapnum, timeformat=False):
         """Utility routine to set title of axis to the time of snapnum using the given format."""
         if timeformat != False:
             ax.set_title(timeformat.format(self.times[snapnum]))
             
         
-    def plot_particles_setoffsets(self, scatterplot, snapnum):
+    def _plot_particles_setoffsets(self, scatterplot, snapnum):
         """Update a previously-made plot_particles() with a new snapshot number."""
         
         # Get the things that will be plotted
@@ -795,17 +1048,29 @@ class Simulation(object):
         
     
     def movie_particles(self, fname, fps=25, ax=None, skip=None, timeformat='{0:.1f}', *args, **kwargs):
-        """Create a movie of the particles. Uses the plot_particles() function.
+        """Create a movie of the particles using the :meth:`~gravhopper.Simulation.plot_particles` function.
         
-        Parameters:
-            fname:      Movie output file name. Required.
-            fps:        Frames per second. Default: 25.
-            ax:         Matplotlib Axes to plot on. If None (default), creates a new
-                        figure and a new axis on that figure using add_subplot(111, aspect=1.0)
-                        and closes the figure at the end.
-            skip:       Skip every N frames.
-            
-        All other parameters are passed through to plot_particles().
+        Parameters
+        ----------
+        fname : str
+            Movie output file name
+        fps : int
+            Frames per second (default: 25)
+        ax : matplotlib Axis, optional
+            Axis on which to plot. If missing or None, uses plt.subplot(111, aspect=1.0) to
+            create a new Axis object and closes the figure after the movie is made.
+        skip : int, optional
+            Skip every N frames (e.g. skip=5 only has 1/5th of the full number of frames).
+        xlim : array-like, optional
+            x limits of the movie (default: encompasses the full extent any particle
+            reaches)
+        ylim : array-like, optional
+            y limits of the movie (default: encompasses the full extent any particle
+            reaches)
+        *args : object
+            Passed through to :meth:`~gravhopper.Simulation.plot_particles`
+        **kwargs : dict
+            Passed through to :meth:`~gravhopper.Simulation.plot_particles`
         """
         
         # Create axis if necessary.
@@ -824,11 +1089,27 @@ class Simulation(object):
         # Initial frame
         particles = self.plot_particles(*args, ax=ax, snap='IC', timeformat=timeformat, **kwargs)
         
+        # Default x and y limits are min/max over the whole simulation
+        # Get the things that will be plotted
+        if self._plot_parms['data_parm']=='pos':
+            data = self.positions
+        elif self._plot_parms['data_parm']=='vel':
+            data = self.velocities
+        xdat = data[:, self._plot_parms['particle_range'][0]:self._plot_parms['particle_range'][1], self._plot_parms['xindex']].to(self._plot_parms['unit']).value
+        ydat = data[:, self._plot_parms['particle_range'][0]:self._plot_parms['particle_range'][1], self._plot_parms['yindex']].to(self._plot_parms['unit']).value
+        if 'xlim' not in kwargs:
+            kwargs['xlim'] = [np.min(xdat), np.max(xdat)]
+            ax.set_xlim(kwargs['xlim'])
+        if 'ylim' not in kwargs:
+            kwargs['ylim'] = [np.min(ydat), np.max(ydat)]
+            ax.set_ylim(kwargs['ylim'])
+            
+        
         # Function that updates each frame
         def animate(frame):
             framesnap = frame * skip
-            self.plot_particles_setoffsets(particles, framesnap)
-            self.plot_particles_settitle(ax, framesnap, timeformat)
+            self._plot_particles_setoffsets(particles, framesnap)
+            self._plot_particles_settitle(ax, framesnap, timeformat)
             return particles
             
         ms_per_frame = 1000 / fps
@@ -843,21 +1124,81 @@ class Simulation(object):
 
         
 class IC(object):
-    """Namespace for holding static methods that define various ICs."""
+    """Namespace for holding static methods that create a variety of initial conditions."""
     
     @staticmethod
     def from_galpy_df(df, N=None, totmass=None, center_pos=None, center_vel=None, force_origin=True):
-        """Sample a galpy sphericaldf DF object and return as an IC. Arguments:
-            N: Number of particles (required)
-            totmass: Total mass (astropy Quantity, required)
-        Optional:
-            center_pos: Force center of mass of simulation to here. Quantity array of size 3.
-            center_vel: Force center of mass velocity of simulation to this. Quantity array
-                of size 3.
-            force_origin: Equivalent to setting center_pos=np.array([0,0,0])*u.kpc
-                and center_vel=np.array([0,0,0])*u.km/u.s. Default True unless center_pos
-                and center_vel is set. If only one of center_mass and center_vel are set,
-                and force_origin is True, then the other is set to 0,0,0.
+        """Sample a galpy sphericaldf distribution function object and return as an IC.
+        
+        Parameters
+        ----------
+        df : galpy df.sphericaldf object
+            Distribution function to sample. Assumed to be in the ro=8, vo=220 unit system.
+        N : int
+            Number of particles
+        totmass : astropy Quantity
+            Total mass
+        center_pos : 3 element array-like Quantity, optional
+            Force the center of mass of the IC to be at this position
+        center_vel : 3 element array-like Quantity, optional
+            Force the mean velocity of the IC to have this velocity
+        force_origin : bool
+            Force the center of mass to be at the origin and the mean velocity to be zero;
+            equivalent to setting center_pos=[0,0,0]*u.kpc and
+            center_vel=[0,0,0]*u.km/u.s. Default is True unless center_pos and
+            center_vel is set. If force_origin is True and only one of center_pos or
+            center_vel is set, the other is set to zero.
+            
+        Returns
+        -------
+        IC : dict
+           Properties of new particles to add, which sample the given distribution function. Contains
+           the following key/value pairs:
+           
+           * **pos:** an array of positions
+           * **vel:** an array of velocities
+           * **mass:** an array of masses
+           
+           Each are astropy Quantities, with shape (Np,3).
+            
+        Note
+        ----
+        Up to at least galpy v1.7, galpy df objects don't fully incorporate astropy Quantity inputs and
+        outputs. Therefore, it is recommended that you define any relevant potential using
+        the default ro=8, vo=220 unit system, turn off physical output for the potential,
+        create the df object from the potential, use ``from_galpy_df()`` to create the ICs,
+        and then turn physical output back on again afterwards if needed (see Example). 
+        
+            
+        Example
+        -------
+        Sample an NFW halo with scale radius 20 kpc, scale amplitude 2x10\ :sup:`11` solar masses, and a maximum
+        radius of 1 Mpc with 10,000 particles::
+        
+              from astropy import units as u
+              from galpy import potential, df
+    
+              NFWamp = 2e11 * u.Msun
+              NFWrs = 20 * u.kpc
+              ro = 8.
+              vo = 220.
+              rmax = 1 * u.Mpc
+              rmax_over_ro = (rmax/(ro*u.kpc)).to(1).value
+              Nhalo = 10000
+              NFWpot = potential.NFWPotential(amp=NFWamp, a=NFWrs)
+              NFWmass = potential.mass(NFWpot, rmax)
+              potential.turn_physical_off(NFWpot)
+              NFWdf = df.isotropicNFWdf(pot=NFWpot, rmax=rmax_over_ro)
+
+              halo_IC = IC.from_galpy_df(NFWdf, N=Nhalo, totmass=NFWmass)  
+      
+              potential.turn_physical_on(NFWpot)   # optional if needed later      
+            
+        
+        Raises
+        ------
+        ExternalPackageException
+            If galpy could not be imported.
         """
         
         if USE_GALPY:
@@ -889,7 +1230,35 @@ class IC(object):
             
     @staticmethod
     def from_pyn_snap(pynsnap):
-        """Turn a pynbody SimSnap into a set of GravHopper initial conditions."""
+        """Turn a pynbody SimSnap into a set of GravHopper initial conditions.
+        
+        Parameters
+        ----------
+        pynsnap : SimSnap
+            pynbody snapshot to convert
+            
+        Returns
+        -------
+        IC : dict
+           Properties of new particles to add, which sample the given distribution function. Contains
+           the following key/value pairs:
+           
+           * **pos:** an array of positions
+           * **vel:** an array of velocities
+           * **mass:** an array of masses
+           
+           Each are astropy Quantities, with shape (Np,3).
+
+        Note
+        ----
+        The IC will be converted into the kpc-km/s-Msun unit system.
+           
+        Raises
+        ------
+        ExternalPackageException
+            If pynbody could not be imported.        
+        """
+        
         if USE_PYNBODY:
             # Pynbody units can be complicated things with constants embedded in the
             # unit. Convert them to a simple astropy units system of kpc-km/s-Msun.
@@ -915,29 +1284,52 @@ class IC(object):
     
     @staticmethod
     def TSIS(N=None, maxrad=None, totmass=None, center_pos=None, center_vel=None, force_origin=True, seed=None):
-        """Returns the positions, velocities, and masses for particles that
-         form a truncated singular isothermal sphere (e.g. BT eqs 4.103 and 4.104
-         with a maximum radius imposed). Note that this is not a true equilibrium
-         because of the truncation -- it will be in apporoximate equilibrium in the 
-         inner regions, at least at first, but not in the outer regions.
+        """Generate the initial conditions for a Truncated Singular Isothermal Sphere
+        (e.g. BT eqs 4.103 and 4.104 with a maximum radius imposed). Note that this is
+        not a true equilibrium because of the truncation -- it will be in apporoximate
+        equilibrium in the inner regions, at least at first, but not in the outer regions.
          
-         The parameters are:
-           N: number of particles
-           maxrad: truncation radius (astropy Quantity)
-           totmass: total mass (astropy Quantity)
-            center_pos: Force center of mass of simulation to here. Quantity array of size 3. Optional.
-            center_vel: Force center of mass velocity of simulation to this. Quantity array
-                of size 3. Optional.
-            force_origin: Equivalent to setting center_pos=np.array([0,0,0])*u.kpc
-                and center_vel=np.array([0,0,0])*u.km/u.s. Default True unless center_pos
-                and center_vel is set. If only one of center_mass and center_vel are set,
-                and force_origin is True, then the other is set to 0,0,0.
-            seed: Random number seed, to create reproducible ICs. Optional.
-    
-         For example, here is how you might initialize a simulation that uses this:
-          mysim = Simulation()
-          mysim.add_IC(IC.TSIS(N=10000, maxrad=100*u.kpc, totmass=1e11*u.Msun))
-          """
+        Parameters
+        ----------
+        N : int
+            Number of particles
+        maxrad : astropy Quantity with length dimensions
+            Truncation radius
+        totmass : astropy Quantity with mass dimensions
+            Total mass
+        center_pos : 3 element array-like Quantity, optional
+            Force the center of mass of the IC to be at this position
+        center_vel : 3 element array-like Quantity, optional
+            Force the mean velocity of the IC to have this velocity
+        force_origin : bool
+            Force the center of mass to be at the origin and the mean velocity to be zero;
+            equivalent to setting center_pos=[0,0,0]*u.kpc and
+            center_vel=[0,0,0]*u.km/u.s. Default is True unless center_pos and
+            center_vel is set. If force_origin is True and only one of center_pos or
+            center_vel is set, the other is set to zero.
+        seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}, optional
+            Seed to initialize random number generator to enable repeatable ICs.
+            
+        Returns
+        -------
+        IC : dict
+           Properties of new particles to add, which sample the given distribution function. Contains
+           the following key/value pairs:
+           
+           * **pos:** an array of positions
+           * **vel:** an array of velocities
+           * **mass:** an array of masses
+           
+           Each are astropy Quantities, with shape (Np,3).
+
+        Example
+        -------
+        To create a truncated singular isothermal sphere with a total mass of 10\ :sup:`11` solar masses,
+        a truncation radius of 100 kpc, sampled with 10,000 particles::
+        
+            particles = IC.TSiS(N=10000, maxrad=100*u.kpc, totmass=1e11*u.Msun)
+            
+        """
 
         if (N is None) or (maxrad is None) or (totmass is None):
             raise ICException("TSIS requires N, maxrad, and totmass.")
@@ -969,25 +1361,49 @@ class IC(object):
 
     @staticmethod
     def Plummer(N=None, b=None, totmass=None, center_pos=None, center_vel=None, force_origin=True, seed=None):
-        """Returns the positions, velocities, and masses for particles that
-        form an isotropic Plummer model (BT eqs. 4.83 with n=5, 4.92, 2.44b).
-        The parameters are:
-            totmass: total mass (astropy Quantity)
-            b: scale radius (astropy Quantity)
-            N: number of particles
-            center_pos: Force center of mass of simulation to here. Quantity array of size 3. Optional.
-            center_vel: Force center of mass velocity of simulation to this. Quantity array
-                of size 3. Optional.
-            force_origin: Equivalent to setting center_pos=np.array([0,0,0])*u.kpc
-                and center_vel=np.array([0,0,0])*u.km/u.s. Default True unless center_pos
-                and center_vel is set. If only one of center_mass and center_vel are set,
-                and force_origin is True, then the other is set to 0,0,0.
-            seed: Random number seed, to create reproducible ICs. Optional.
-
-        For example, here is how you might initialize a simulation that uses this:
-         mysim = Simulation()
-         mysim.add_IC(IC.Plummer(N=10000, b=1*u.pc, totmass=1e6*u.Msun))
-         """
+        """Generate the initial conditions for an isotropic Plummer model (BT eqs. 4.83 with n=5, 4.92, 2.44b).
+        
+        Parameters
+        ----------
+        N : int
+            Number of particles
+        b : astropy Quantity of dimension length
+            Scale radius
+        totmass : astropy Quantity of dimensions mass
+            Total mass
+        center_pos : 3 element array-like Quantity, optional
+            Force the center of mass of the IC to be at this position
+        center_vel : 3 element array-like Quantity, optional
+            Force the mean velocity of the IC to have this velocity
+        force_origin : bool
+            Force the center of mass to be at the origin and the mean velocity to be zero;
+            equivalent to setting center_pos=[0,0,0]*u.kpc and
+            center_vel=[0,0,0]*u.km/u.s. Default is True unless center_pos and
+            center_vel is set. If force_origin is True and only one of center_pos or
+            center_vel is set, the other is set to zero.
+        seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}, optional
+            Seed to initialize random number generator to enable repeatable ICs.
+            
+        Returns
+        -------
+        IC : dict
+           Properties of new particles to add, which sample the given distribution function. Contains
+           the following key/value pairs:
+           
+           * **pos:** an array of positions
+           * **vel:** an array of velocities
+           * **mass:** an array of masses
+           
+           Each are astropy Quantities, with shape (Np,3).
+           
+        Example
+        -------
+        To create a Plummer sphere with scale radius 1 pc and a total mass of 10\ :sup:`6` M\ :sub:`sun`
+        sampled with 10,000 particles::
+        
+            particles = IC.Plummer(N=10000, b=1*u.pc, totmass=1e6*u.Msun)
+            
+        """
 
         if (N is None) or (b is None) or (totmass is None):
             raise ICException("Plummer requires N, b, and totmass.")
@@ -1038,26 +1454,51 @@ class IC(object):
 
     @staticmethod
     def Hernquist(N=None, a=None, totmass=None, cutoff=10., center_pos=None, center_vel=None, force_origin=True, seed=None):
-        """Returns the positions, velocities, and masses for particles that
-        form an isotropic Hernquist model (Hernquist 1990).
-        The parameters are:
-            totmass: total mass (astropy Quantity)
-            a: scale radius (astropy Quantity)
-            N: number of particles
-            cutoff: don't include particles more than cutoff times the scale radius. Default: 10
-            center_pos: Force center of mass of simulation to here. Quantity array of size 3. Optional.
-            center_vel: Force center of mass velocity of simulation to this. Quantity array
-                of size 3. Optional.
-            force_origin: Equivalent to setting center_pos=np.array([0,0,0])*u.kpc
-                and center_vel=np.array([0,0,0])*u.km/u.s. Default True unless center_pos
-                and center_vel is set. If only one of center_mass and center_vel are set,
-                and force_origin is True, then the other is set to 0,0,0.
-            seed: Random number seed, to create reproducible ICs. Optional.
+        """Generate the initial conditions for an isotropic Hernquist model (Hernquist 1990).
         
-        For example, here is how you might initialize a simulation that uses this:
-         mysim = Simulation()
-         mysim.add_IC( IC.Hernquist(N=10000, a=1*u.kpc, totmass=1e10*u.Msun) )
-         """
+        Parameters
+        ----------
+        N : int
+            Number of particles
+        a : astropy Quantity of dimension length
+            Scale radius
+        totmass : astropy Quantity of dimension mass
+            Total mass
+        cutoff : float
+            Cut off the distribution at cutoff times the scale radius
+        center_pos : 3 element array-like Quantity, optional
+            Force the center of mass of the IC to be at this position
+        center_vel : 3 element array-like Quantity, optional
+            Force the mean velocity of the IC to have this velocity
+        force_origin : bool
+            Force the center of mass to be at the origin and the mean velocity to be zero;
+            equivalent to setting center_pos=[0,0,0]*u.kpc and
+            center_vel=[0,0,0]*u.km/u.s. Default is True unless center_pos and
+            center_vel is set. If force_origin is True and only one of center_pos or
+            center_vel is set, the other is set to zero.
+        seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}, optional
+            Seed to initialize random number generator to enable repeatable ICs.
+            
+        Returns
+        -------
+        IC : dict
+           Properties of new particles to add, which sample the given distribution function. Contains
+           the following key/value pairs:
+           
+           * **pos:** an array of positions
+           * **vel:** an array of velocities
+           * **mass:** an array of masses
+           
+           Each are astropy Quantities, with shape (Np,3).
+           
+        Example
+        -------
+        To create a Hernquist sphere with a total mass of 10\ :sup:`10` solar masses, a scale radius
+        of 1 kpc, sampled with 10,000 particles::
+        
+            particles = IC.Hernquist(N=10000, a=1*u.kpc, totmass=1e10*u.Msun)
+            
+        """
          
         rng = np.random.default_rng(seed)
      
@@ -1128,31 +1569,60 @@ class IC(object):
     @staticmethod
     def expdisk(sigma0=None, Rd=None, z0=None, sigmaR_Rd=None, external_rotcurve=None, N=None, \
         center_pos=None, center_vel=None, force_origin=True, seed=None):
-        """Returns the positions, velocities, and masses for particles that
-        form an exponential disk with a sech^2 vertical distribution that is
-        in approximate equilibrium.
-        The parameters are:
-            sigma0: central surface density (astropy Quantity)
-            Rd: exponential scale length (astropy Quantity)
-            z0: scale height (astropy Quantity)
-            sigmaR_Rd: radial velocity dispersion at R=Rd (astropy Quantity)
-            external_rotcurve: function that returns the circular velocity of any external
-                force, or None if there is none. Input and output should be Astropy Quantities.
-            N: number of particles
-            center_pos: Force center of mass of simulation to here. Quantity array of size 3. Optional.
-            center_vel: Force center of mass velocity of simulation to this. Quantity array
-                of size 3. Optional.
-            force_origin: Equivalent to setting center_pos=np.array([0,0,0])*u.kpc
-                and center_vel=np.array([0,0,0])*u.km/u.s. Default True unless center_pos
-                and center_vel is set. If only one of center_mass and center_vel are set,
-                and force_origin is True, then the other is set to 0,0,0.
-            seed: Random number seed, to create reproducible ICs. Optional.
-
-        For example, here is how you might initialize a simulation that uses this:
-         mysim = Simulation()
-         mysim.add_IC( IC.expdisk(N=10000, sigma0=200*u.Msun/u.pc**2, Rd=2*u.kpc,
-                z0=0.5*u.kpc, sigmaR=10*u.km/u.s,
-                halo_force=lambda x: (200*u.km/u.s)**2 / x) )
+        """Generates initial conditions of an exponential disk with a sech^2 vertical distribution that is
+        in (very) approximate equilibrium: rho(R,z) = (sigma0 / 2 z0) exp(-R/Rd) sech^2(z/z0)
+        
+        Parameters
+        ----------
+        sigma0 : astropy Quantity with dimensions of surface density
+            Central surface density
+        Rd : astropy Quantity with dimensions of length
+            Radial exponential scale length
+        z0 : astropy Quantity with dimensions of length
+            Vertical scale height
+        sigmaR_Rd : astropy Quantity with dimensions of velocity
+            Radial velocity dispersion at R=Rd
+        external_rotcurve : function or None
+            Function that returns the circular velocity of any external potential that contributes
+            to the rotation curve aside from the disk itself. The function should accept input
+            as an astropy Quantity of dimension length, and should return an astropy Quantity of
+            dimension velocity.
+        N : int
+            Number of particles
+        center_pos : 3 element array-like Quantity, optional
+            Force the center of mass of the IC to be at this position
+        center_vel : 3 element array-like Quantity, optional
+            Force the mean velocity of the IC to have this velocity
+        force_origin : bool
+            Force the center of mass to be at the origin and the mean velocity to be zero;
+            equivalent to setting center_pos=[0,0,0]*u.kpc and
+            center_vel=[0,0,0]*u.km/u.s. Default is True unless center_pos and
+            center_vel is set. If force_origin is True and only one of center_pos or
+            center_vel is set, the other is set to zero.
+        seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}, optional
+            Seed to initialize random number generator to enable repeatable ICs.
+            
+        Returns
+        -------
+        IC : dict
+           Properties of new particles to add, which sample the given distribution function. Contains
+           the following key/value pairs:
+           
+           * **pos:** an array of positions
+           * **vel:** an array of velocities
+           * **mass:** an array of masses
+           
+           Each are astropy Quantities, with shape (Np,3).
+           
+        Example
+        -------
+        To create an exponential disk that is in a background logarithmic halo potential that
+        generates a flat rotation curve of 200 km/s::
+        
+            particles = IC.expdisk(N=10000, sigma0=200*u.Msun/u.pc**2, Rd=2*u.kpc,
+                z0=0.5*u.kpc, sigmaR_Rd=10*u.km/u.s,
+                external_rotcurve=lambda x: 200*u.km/u.s)
+                
         """
                 
         rng = np.random.default_rng(seed)
@@ -1228,15 +1698,30 @@ class IC(object):
         
 def force_centers(positions, velocities, center_pos=None, center_vel=None, force_origin=True):
     """Move positions and velocities to have the desired center of mass position and mean velocity.
-        center_pos: Force center of mass of simulation to here. Quantity array of size 3.
-        center_vel: Force center of mass velocity of simulation to this. Quantity array
-            of size 3.
-        force_origin: Equivalent to setting center_pos=np.array([0,0,0])*u.kpc
-            and center_vel=np.array([0,0,0])*u.km/u.s. Default True unless center_pos
-            and center_vel is set. If only one of center_mass and center_vel are set,
-            and force_origin is True, then the other is set to 0,0,0.
-            
-        Returns new (positions, velocities).
+    
+    Parameters
+    ----------
+    positions : array of Quantities of dimension length
+        (Np,3) array of particle positions
+    velocities : array of Quantities of dimension velocity
+        (Np,3) array of particle velocities
+    center_pos : 3 element array-like Quantity, optional
+        Force the center of mass of the IC to be at this position
+    center_vel : 3 element array-like Quantity, optional
+        Force the mean velocity of the IC to have this velocity
+    force_origin : bool
+        Force the center of mass to be at the origin and the mean velocity to be zero;
+        equivalent to setting center_pos=np.array([0,0,0])*u.kpc and
+        center_vel=np.array([0,0,0])*u.km/u.s. Default is True unless center_pos and
+        center_vel is set. If force_origin is True and only one of center_pos or
+        center_vel is set, the other is set to zero.
+        
+    Returns
+    -------
+    newpositions : array of Quantities of dimension length
+        New shifted positions
+    newvelocities : array of Quantities of dimension velocity
+        New shifted velocities
     """
     
     newpos = positions
