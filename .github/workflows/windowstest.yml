@@ -1,0 +1,16 @@
+name: Testing for Windows GitHub Actions cibuildwheel issue
+
+on:
+  push:
+  
+jobs:
+  findinfo:
+    name: Get info where rs.exe is
+    runs-on: windows-2019
+    
+    steps:
+     - name Check Windows VS environment
+     - run: |
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $vswhere -prerelease -legacy -latest -property installationPath
+    
