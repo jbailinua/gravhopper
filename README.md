@@ -1,4 +1,4 @@
-# GravHopper
+# ![](ghop-frame.png) GravHopper
 
 *"They told me computers could only do arithmetic." -- Grace Hopper*
 
@@ -54,6 +54,10 @@ To make a movie of the whole evolution of the simulation:
     
     # Make and save a movie of the simulation running
     sim.movie_particles('Plummer_sim.mp4', unit=u.pc, xlim=[-10,10], ylim=[-10,10])
+
+## Documentation
+
+[Read The Docs](https://gravhopper.readthedocs.io)
 
 ## Installation
 
