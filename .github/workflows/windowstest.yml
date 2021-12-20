@@ -12,5 +12,5 @@ jobs:
      - name: Check Windows VS environment
        run: |
         $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-        $vswhere -prerelease -legacy -latest -property installationPath
+        `$vswhere -prerelease -legacy -latest -property installationPath`
     
