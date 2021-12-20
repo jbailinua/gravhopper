@@ -24,26 +24,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macos-10.15]
+        os: [ubuntu-20.04, macos-10.15]
 
     steps:
       - uses: actions/checkout@v2
       
-      - name: Fix Windows VS environment
-        run: |
-             function Invoke-VSDevEnvironment { 
-               $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-               $installationPath = & $vswhere -prerelease -legacy -latest -property installationPath
-               $Command = Join-Path $installationPath "Common7\Tools\vsdevcmd.bat"
-                  & "${env:COMSPEC}" /s /c "`"$Command`" -no_logo && set" | Foreach-Object {
-                  if ($_ -match '^([^=]+)=(.*)') {
-                    [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
-                  }
-               }
-             }
-             Invoke-VSDevEnvironment
-        if: matrix.os == 'windows-2019'
-
       - uses: actions/setup-python@v2
         name: Install Python
         with:
@@ -58,6 +43,38 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           path: ./wheelhouse/*.whl
+
+  build_wheels_windows:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-2019]
+
+    steps:
+      - uses: actions/checkout@v2
+      
+      - uses: actions/setup-python@v2
+        name: Install Python
+        with:
+          python-version: '3.8'
+
+      - name: Install dependencies
+        run: pip install numpy
+
+      - name: Fix Windows VS environment
+        run: echo "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22000.0\x86" >> $GITHUB_PATH
+        
+      - name: Check path
+        run: echo $GITHUB_PATH
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.2.2
+
+      - uses: actions/upload-artifact@v2
+        with:
+          path: ./wheelhouse/*.whl
+  
 
   build_sdist:
     name: Build source distribution
