@@ -57,7 +57,8 @@ To make a movie of the whole evolution of the simulation:
 
 ## Documentation
 
-[Read The Docs](https://gravhopper.readthedocs.io)
+Full documentation, including installation instructions, examples, and library reference,
+are at [Read The Docs](https://gravhopper.readthedocs.io)
 
 ## Installation
 
