@@ -29,7 +29,7 @@ jobs:
       
       - name: Update Windows path
         run: echo "::add-path::C:\Program Files (x86)\Windows Kits\10\bin\10.0.18362.0\x64"
-        if: runner.os == "windows-2019"
+        if: matrix.os == 'windows-2019'
 
       - uses: actions/setup-python@v2
         name: Install Python
