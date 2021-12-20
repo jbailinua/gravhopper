@@ -12,6 +12,8 @@ on:
 
 
 # Only build CPython 3.6+, skip Win32, Linux i686, and musllinux (inspired by APW's gala workflow)
+# C:\Program Files (x86)\Windows Kits\10\bin\10.0.22000.0\x86\rc.exe              
+
 env:
     CIBW_BUILD: "cp3?-*"
     CIBW_SKIP: "*-win32 *-manylinux_i686 *-musllinux*"
@@ -29,18 +31,17 @@ jobs:
       
       - name: Fix Windows VS environment
         run: |
-              function Invoke-VSDevEnvironment { 
-                $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-                $installationPath = & $vswhere -prerelease -legacy -latest -property installationPath
-                $Command = Join-Path $installationPath "Common7\Tools\vsdevcmd.bat"
+             function Invoke-VSDevEnvironment { 
+               $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+               $installationPath = & $vswhere -prerelease -legacy -latest -property installationPath
+               $Command = Join-Path $installationPath "Common7\Tools\vsdevcmd.bat"
                   & "${env:COMSPEC}" /s /c "`"$Command`" -no_logo && set" | Foreach-Object {
-                  if ($_ -match '^([^=]+)=(.*)') {
-                        [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
-                  }
-                }
-              }
-              Invoke-VSDevEnvironment
-# C:\Program Files (x86)\Windows Kits\10\bin\10.0.22000.0\x86\rc.exe              
+                 if ($_ -match '^([^=]+)=(.*)') {
+                    [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
+                 }
+               }
+             }
+             Invoke-VSDevEnvironment
          if: matrix.os == 'windows-2019'
 
       - uses: actions/setup-python@v2
