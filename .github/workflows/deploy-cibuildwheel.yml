@@ -20,14 +20,16 @@ jobs:
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    env:
-      SETUPTOOLS_USE_DISTUTILS: local
     strategy:
       matrix:
         os: [ubuntu-20.04, windows-2019, macos-10.15]
 
     steps:
       - uses: actions/checkout@v2
+      
+      - name: Update Windows path
+        run: echo "::add-path::C:\Program Files (x86)\Windows Kits\10\bin\10.0.18362.0\x64"
+        if: runner.os == "windows-2019"
 
       - uses: actions/setup-python@v2
         name: Install Python
