@@ -17,7 +17,8 @@ on:
 env:
     CIBW_BUILD: "cp3?-*"
     CIBW_SKIP: "*-win32 *-manylinux_i686 *-musllinux*"
-    CIBW_ENVIRONMENT_WINDOWS: >> PATH="C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.22000.0\\x86"
+    CIBW_ENVIRONMENT_WINDOWS: >
+        PATH="$PATH;C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.22000.0\\x86"
 
 jobs:
   build_wheels:
