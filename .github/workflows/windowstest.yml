@@ -9,7 +9,7 @@ jobs:
     runs-on: windows-2019
     
     steps:
-     - name Check Windows VS environment
+     - name: Check Windows VS environment
      - run: |
         $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
         $vswhere -prerelease -legacy -latest -property installationPath
