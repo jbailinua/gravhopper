@@ -57,5 +57,5 @@ html_theme = 'sphinxdoc'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-# autodoc shouldn't try to import the C extension
-autodoc_mock_imports = ["gravhopper._jbgrav"]
+# autodoc shouldn't try to import the C extension or anything 3rd party
+autodoc_mock_imports = ["gravhopper._jbgrav","numpy","scipy","astropy","matplotlib","pynbody","gala","galpy"]
