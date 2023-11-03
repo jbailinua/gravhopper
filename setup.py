@@ -7,7 +7,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
         name="gravhopper",
-        version="1.1.0",
+        version="1.2.0",
         author="Jeremy Bailin",
         author_email="jbailin@ua.edu",
         description="Simple N-body code for Python",
@@ -23,7 +23,7 @@ setup(
         packages=find_packages(),
         include_package_data=True,
         
-        python_requires=">=3.6",
+        python_requires=">=3.7",
         install_requires=[
             'numpy>=1.21',
             'scipy>=1.3',
