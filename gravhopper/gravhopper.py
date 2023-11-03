@@ -499,17 +499,12 @@ class Simulation(object):
             for parti in range(Npos):
                 if time is None:
                     accel_R[parti] = galpy.potential.evaluateRforces(galpypot, R[parti], z[parti], phi=phi[parti])
-                    # You might think that a function called evaluatephiforces would return
-                    # the forces in the phi direction. You would be wrong.
-                    # It actually returns dPhi/dphi, which is R times the actual phi force.
-                    # So we need to divide by R to get a physical force that we can transform
-                    # as a vector.
-                    accel_phi[parti] = galpy.potential.evaluatephiforces(galpypot, R[parti], z[parti], phi=phi[parti]) / R[parti]
+                    accel_phi[parti] = galpy.potential.evaluatephitorques(galpypot, R[parti], z[parti], phi=phi[parti]) / R[parti]
                     accel_z[parti] = galpy.potential.evaluatezforces(galpypot, R[parti], z[parti], phi=phi[parti])
                 else:
                     accel_R[parti] = galpy.potential.evaluateRforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time)
                     # See above.
-                    accel_phi[parti] = galpy.potential.evaluatephiforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time) / R[parti]
+                    accel_phi[parti] = galpy.potential.evaluatephitorques(galpypot, R[parti], z[parti], phi=phi[parti], t=time) / R[parti]
                     accel_z[parti] = galpy.potential.evaluatezforces(galpypot, R[parti], z[parti], phi=phi[parti], t=time)
 
             ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
@@ -518,18 +513,16 @@ class Simulation(object):
             # Do it vectorized
             if time is None:
                 accel_R = galpy.potential.evaluateRforces(galpypot, R, z, phi=phi)
-                # You might think that a function called evaluatephiforces would return
-                # the forces in the phi direction. You would be wrong.
-                # It actually returns dPhi/dphi, which is R times the actual phi force.
+                # phitorques returns dPhi/dphi, which is R times the phi force.
                 # So we need to divide by R to get a physical force that we can transform
                 # as a vector.
-                accel_phi = galpy.potential.evaluatephiforces(galpypot, R, z, phi=phi) / R
+                accel_phi = galpy.potential.evaluatephitorques(galpypot, R, z, phi=phi) / R
                 accel_z = galpy.potential.evaluatezforces(galpypot, R, z, phi=phi)
                 ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
             else:
                 accel_R = galpy.potential.evaluateRforces(galpypot, R, z, phi=phi, t=time)
                 # See above.
-                accel_phi = galpy.potential.evaluatephiforces(galpypot, R, z, phi=phi, t=time) / R
+                accel_phi = galpy.potential.evaluatephitorques(galpypot, R, z, phi=phi, t=time) / R
                 accel_z = galpy.potential.evaluatezforces(galpypot, R, z, phi=phi, t=time)
                 ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
             
@@ -564,12 +557,7 @@ class Simulation(object):
             for parti in range(Npos):
                 veli = [vR[parti], vphi[parti], vz[parti]]
                 accel_R[parti] = galpy.potential.evaluateRforces(galpypot, R[parti], z[parti], phi=phi[parti], v=veli)
-                # You might think that a function called evaluatephiforces would return
-                # the forces in the phi direction. You would be wrong.
-                # It actually returns dPhi/dphi, which is R times the actual phi force.
-                # So we need to divide by R to get a physical force that we can transform
-                # as a vector.
-                accel_phi[parti] = galpy.potential.evaluatephiforces(galpypot, R[parti], z[parti], phi=phi[parti], v=veli) / R[parti]
+                accel_phi[parti] = galpy.potential.evaluatephitorques(galpypot, R[parti], z[parti], phi=phi[parti], v=veli) / R[parti]
                 accel_z[parti] = galpy.potential.evaluatezforces(galpypot, R[parti], z[parti], phi=phi[parti], v=veli)
 
             ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
@@ -579,12 +567,7 @@ class Simulation(object):
             vel_cyl = np.vstack((vR, vphi, vz))
             
             accel_R = galpy.potential.evaluateRforces(galpypot, R, z, phi=phi, v=vel_cyl)
-            # You might think that a function called evaluatephiforces would return
-            # the forces in the phi direction. You would be wrong.
-            # It actually returns dPhi/dphi, which is R times the actual phi force.
-            # So we need to divide by R to get a physical force that we can transform
-            # as a vector.
-            accel_phi = galpy.potential.evaluatephiforces(galpypot, R, z, phi=phi, v=vel_cyl) / R
+            accel_phi = galpy.potential.evaluatephitorques(galpypot, R, z, phi=phi, v=vel_cyl) / R
             accel_z = galpy.potential.evaluatezforces(galpypot, R, z, phi=phi, v=vel_cyl)
             ax, ay, az = galpy.util.coords.cyl_to_rect_vec(accel_R, accel_phi, accel_z, phi=phi)
             
