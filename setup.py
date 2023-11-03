@@ -1,5 +1,5 @@
 from setuptools import setup, Extension, find_packages
-import numpy.distutils.misc_util
+import numpy
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -32,6 +32,6 @@ setup(
         ],
         
         ext_modules=[Extension("gravhopper._jbgrav", ["gravhopper/_jbgrav.c"])],
-        include_dirs=numpy.distutils.misc_util.get_numpy_include_dirs(),
+        include_dirs=numpy.get_include(),
         )
 
