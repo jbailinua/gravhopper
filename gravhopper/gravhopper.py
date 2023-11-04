@@ -1655,7 +1655,7 @@ class IC(object):
         Omega2 = om2(R.to(u.kpc).value)
         kappa2 = 4.*Omega2 + R * derivative(om2, R.to(u.kpc).value, 1e-3) / u.kpc
 
-        sigma_R = sigmaR_Rd * np.exp(-R/Rd)
+        sigma_R = sigmaR_Rd * np.exp(0.25*(1-R/Rd))
         sigma2_phi = sigma_R**2 * 4 * Omega2 / kappa2
         sigma2_z = np.pi * const.G * z0 * sigma0 * 0.5 * np.exp(-R/Rd)
         vphi_mean = (R * np.sqrt(Omega2)).to(u.km/u.s)
