@@ -1,7 +1,7 @@
 name: Build and upload into PyPI
 
 # Manually dispatch
-on: workflow_dispatch:
+on: workflow_dispatch
 # push:
 #  pull_request:
 #  release:
