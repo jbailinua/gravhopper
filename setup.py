@@ -33,5 +33,6 @@ setup(
         
         ext_modules=[Extension("gravhopper._jbgrav", ["gravhopper/_jbgrav.c"])],
         include_dirs=numpy.get_include(),
+        define_macros=[("NPY_NO_DEPRECATED_API", "NPY_2_0_API_VERSION")]
         )
 
