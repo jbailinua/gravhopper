@@ -12,13 +12,22 @@ static char module_docstring[] =
 static char direct_summation_docstring[] =
 	"Calculate the gravitational acceleration on every particle in the snapshot from every other particle using direct summation.";
 
+static char direct_summation_position_docstring[] =
+	"Calculate the gravitational acceleration at a set of positions from every particle in a simulation using direct summation.";
+
 static char treeforce_docstring[] =
 	"Calculate the gravitational acceleration on every particle in the snapshot from every other particle using a Barnes-Hunt tree.";
+
+static char treeforce_position_docstring[] =
+	"Calculate the gravitational acceleration at a set of positions from every particle in a simulation using a Barnes-Hunt tree.";
 
 
 static PyMethodDef module_methods[] = {
 	{"direct_summation", (PyCFunction)jbgrav_direct_summation, METH_VARARGS, direct_summation_docstring},
+	{"direct_summation_position", (PyCFunction)jbgrav_direct_summation_position, METH_VARARGS, direct_summation_position_docstring},
 	{"tree_force", (PyCFunction)jbgrav_tree_force, METH_VARARGS, treeforce_docstring},
+	{NULL, NULL, 0, NULL},
+	{"tree_force_position", (PyCFunction)jbgrav_tree_force, METH_VARARGS, treeforce_position_docstring},
 	{NULL, NULL, 0, NULL}
 };
 
@@ -118,9 +127,6 @@ static PyObject *jbgrav_direct_summation(PyObject *self, PyObject *args)
 	return forcearray;
 }
 
-
-
-
 /* Workhorse part here. This part is in dimensionless units, so the driver
  * function in python will have to do the conversions and make sure that
  * it's a numpy array */
@@ -178,6 +184,158 @@ PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int
 	/* return None */
 	return Py_None;
 }
+
+
+
+
+/* main wrapper - get arguments into a useful state, call workhorse, and return as
+ * a numpy array */
+static PyObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args)
+{
+	PyObject *pos_obj;  /* comes in as an Npx3 np.ndarray */
+	PyObject *mass_obj; /* comes in as an Np-element np.ndarray */
+	PyObject *force_pos_obj;  /* comes in as an Nx3 np.ndarray */
+	double eps;
+	int np,nf;    // Number of particles, number of force locations
+
+	if (!PyArg_ParseTuple(args, "OOOd", &pos_obj, &mass_obj, &force_pos_obj, &eps))
+		return NULL;
+
+	/* turn into numpy arrays */
+	PyObject *posarray = PyArray_FROM_OTF(pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+	PyObject *massarray = PyArray_FROM_OTF(mass_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+	PyObject *forceposarray = PyArray_FROM_OTF(force_pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+	/* throw exception if necessary */
+	if (posarray == NULL || massarray == NULL || forceposarray == NULL) {
+		Py_XDECREF(posarray);
+		Py_XDECREF(massarray);
+		Py_XDECREF(forceposarray);
+		return NULL;
+	}
+
+	/* make sure particle position array is Nx3 */
+	if(PyArray_NDIM(posarray) != 2) {
+		Py_DECREF(posarray);
+		Py_DECREF(massarray);
+		Py_XDECREF(forceposarray);
+		PyErr_SetString(PyExc_RuntimeError, "Particle position array does not have 2 dimensions.");
+		return NULL;
+	}
+	if( (int)PyArray_DIM(posarray, 1) != 3 ) {
+		Py_DECREF(posarray);
+		Py_DECREF(massarray);
+		Py_XDECREF(forceposarray);
+		PyErr_SetString(PyExc_RuntimeError, "Particle position array is not Nx3.");
+		return NULL;
+	}
+	np = (int)PyArray_DIM(posarray, 0);
+	/* and mass array has the same number of elements */
+	if( (int)PyArray_DIM(massarray, 0) != np ) {
+		Py_DECREF(posarray);
+		Py_DECREF(massarray);
+		Py_XDECREF(forceposarray);
+		PyErr_SetString(PyExc_RuntimeError, "Mass array and particle position array contain different numbers of particles.");
+		return NULL;
+	}
+
+	/* make sure force position array is Nx3 */
+	if(PyArray_NDIM(forceposarray) != 2) {
+		Py_DECREF(posarray);
+		Py_DECREF(massarray);
+		Py_XDECREF(forceposarray);
+		PyErr_SetString(PyExc_RuntimeError, "Force position array does not have 2 dimensions.");
+		return NULL;
+	}
+	if( (int)PyArray_DIM(forceposarray, 1) != 3 ) {
+		Py_DECREF(posarray);
+		Py_DECREF(massarray);
+		Py_XDECREF(forceposarray);
+		PyErr_SetString(PyExc_RuntimeError, "Force position array is not Nx3.");
+		return NULL;
+	}
+	nf = (int)PyArray_DIM(forceposarray, 0);
+	
+
+	/* create an output array */
+	PyObject *forcearray = PyArray_NewLikeArray(forceposarray, NPY_ANYORDER, NULL, 1);
+
+	/* call the workhorse */
+	if (directsummation_position_workhorse(posarray, massarray, np, forceposarray, nf, eps, forcearray) == NULL) {
+		Py_DECREF(posarray);
+		Py_DECREF(forcearray);
+		Py_XDECREF(forceposarray);
+		PyErr_SetString(PyExc_RuntimeError, "Error in direct summation position C code.");
+		return NULL;
+	}
+
+	/* clean up the intermediate input ndarrays */
+	Py_DECREF(posarray);
+	Py_DECREF(massarray);
+    Py_XDECREF(forceposarray);
+
+	/* return the output */
+	return forcearray;
+}
+
+/* Workhorse part here. This part is in dimensionless units, so the driver
+ * function in python will have to do the conversions and make sure that
+ * it's a numpy array */
+PyObject* directsummation_position_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, PyArrayObject* forcepos, int nf, double eps, PyArrayObject* forcearray)
+{
+	double *dpos,*invdpos3;
+	double dpos2, dpos2_plus_eps2;
+	double diff,diff2,eps2;
+	double *forceelement;
+	int i,j,k;
+
+	dpos = malloc(sizeof(double) * nf * np * 3);
+	invdpos3 = malloc(sizeof(double) * nf * np);
+	if((dpos==NULL) || (invdpos3==NULL)) return NULL;
+
+	eps2 = eps*eps;
+	
+	/* loop through arrays calculating the dpos array */
+	for (i=0; i<nf; i++) {
+		for(j=0; j<np; j++) {
+			dpos2 = 0.0;
+			for(k=0; k<3; k++) {
+			  diff = (*(double*)PyArray_GETPTR2(forcepos,i,k)) - (*(double*)PyArray_GETPTR2(pos,j,k));
+			  diff2 = diff*diff;
+			  dpos[i*np*3 + j*3 + k] = -diff;
+			  dpos2 += diff2;
+			}
+			dpos2_plus_eps2 = dpos2 + eps2;
+			/* If the requested location exactly matches a particle and eps=0,
+			we can get a divide by zero. In this case, that's calculating the self-force
+			of a particle on itself, which is zero. */
+			if (dpos2_plus_eps2==0.0)
+			    invdpos3[i*np + j] = 0.0;
+			else
+    			invdpos3[i*np + j] = 1.0 / dpos2_plus_eps2 / sqrt(dpos2_plus_eps2); 
+			/* based on my tests, this is twice as fast as pow(x, -1.5) */			
+		}
+	}
+
+	/* loop through each position and add up forces */
+	for (i=0; i<nf; i++) {
+		for(k=0; k<3; k++) {
+			forceelement = (double*) PyArray_GETPTR2(forcearray, i, k);
+			*forceelement = 0.0;
+			for(j=0; j<np; j++) {
+				(*forceelement) += *(double*)PyArray_GETPTR1(mass,j) *
+					dpos[i*np*3 + j*3 + k] * invdpos3[i*np + j];
+			}
+		}
+	}
+
+	/* clear up dpos and invdpos3 arrays */
+	free(dpos);
+	free(invdpos3);
+
+	/* return None */
+	return Py_None;
+}
+
 
 
 
@@ -337,7 +495,13 @@ void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, doub
 			dpos2 += diff2;
 		}
 		dpos2_plus_eps2 = dpos2 + eps2;
-		invdpos3 = 1.0 / dpos2_plus_eps2 / sqrt(dpos2_plus_eps2); /* 2x faster than pow(dpos2 + eps2, -1.5); */
+        /* If the requested location exactly matches a leaf and eps=0,
+        we can get a divide by zero. In this case, that's calculating the self-force
+        of a particle on itself, which is zero. */
+        if (dpos2_plus_eps2==0.0)
+            invdpos3[i*np + j] = 0.0;
+        else
+            invdpos3 = 1.0 / dpos2_plus_eps2 / sqrt(dpos2_plus_eps2); /* 2x faster than pow(dpos2 + eps2, -1.5); */
 
 		for(i=0; i<3; i++) {
 			force[i] = d_pos[i] * tree->mass * invdpos3;
@@ -385,10 +549,10 @@ static PyObject *jbgrav_tree_force(PyObject *self, PyObject *args)
 {
 	PyObject *pos_obj;  /* comes in as an Nx3 np.ndarray */
 	PyObject *mass_obj; /* comes in as an N-element np.ndarray */
-	double eps;
+	double eps, theta;
 	int np;
 
-	if (!PyArg_ParseTuple(args, "OOd", &pos_obj, &mass_obj, &eps))
+	if (!PyArg_ParseTuple(args, "OOdd", &pos_obj, &mass_obj, &eps, &theta))
 		return NULL;
 
 	/* turn into numpy arrays */
@@ -427,7 +591,7 @@ static PyObject *jbgrav_tree_force(PyObject *self, PyObject *args)
 	PyObject *forcearray = PyArray_NewLikeArray(posarray, NPY_ANYORDER, NULL, 1);
 
 	/* call the workhorse */
-	if (treeforce_workhorse(posarray, massarray, np, eps, forcearray) == NULL) {
+	if (treeforce_workhorse(posarray, massarray, np, eps, theta, forcearray) == NULL) {
 		Py_DECREF(posarray);
 		Py_DECREF(forcearray);
 		PyErr_SetString(PyExc_RuntimeError, "Error in tree C code.");
@@ -445,14 +609,12 @@ static PyObject *jbgrav_tree_force(PyObject *self, PyObject *args)
 /* Tree workhorse part here. This part is in dimensionless units, so the driver
  * function in python will have to do the conversions and make sure that
  * it's a numpy array */
-PyObject* treeforce_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, double eps, PyArrayObject* forcearray)
+PyObject* treeforce_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, double eps, double theta, PyArrayObject* forcearray)
 {
 	struct gravoct_node *root;
 	struct gravoct_particle *p;
 	double min[3], max[3], boxsize, boxcenter[3],q;
 	double thisforce[3],thispos[3];
-
-	double theta=0.7;
 
 	int i,j;
 
