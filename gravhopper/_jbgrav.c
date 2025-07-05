@@ -26,8 +26,7 @@ static PyMethodDef module_methods[] = {
 	{"direct_summation", (PyCFunction)jbgrav_direct_summation, METH_VARARGS, direct_summation_docstring},
 	{"direct_summation_position", (PyCFunction)jbgrav_direct_summation_position, METH_VARARGS, direct_summation_position_docstring},
 	{"tree_force", (PyCFunction)jbgrav_tree_force, METH_VARARGS, treeforce_docstring},
-	{NULL, NULL, 0, NULL},
-	{"tree_force_position", (PyCFunction)jbgrav_tree_force, METH_VARARGS, treeforce_position_docstring},
+	{"tree_force_position", (PyCFunction)jbgrav_tree_force_position, METH_VARARGS, treeforce_position_docstring},
 	{NULL, NULL, 0, NULL}
 };
 
@@ -499,7 +498,7 @@ void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, doub
         we can get a divide by zero. In this case, that's calculating the self-force
         of a particle on itself, which is zero. */
         if (dpos2_plus_eps2==0.0)
-            invdpos3[i*np + j] = 0.0;
+            invdpos3 = 0.0;
         else
             invdpos3 = 1.0 / dpos2_plus_eps2 / sqrt(dpos2_plus_eps2); /* 2x faster than pow(dpos2 + eps2, -1.5); */
 
@@ -590,8 +589,8 @@ static PyObject *jbgrav_tree_force(PyObject *self, PyObject *args)
 	/* create an output array */
 	PyObject *forcearray = PyArray_NewLikeArray(posarray, NPY_ANYORDER, NULL, 1);
 
-	/* call the workhorse */
-	if (treeforce_workhorse(posarray, massarray, np, eps, theta, forcearray) == NULL) {
+	/* call the workhorse with the particle positions as forcepos too */
+	if (treeforce_workhorse(posarray, massarray, np, posarray, np, eps, theta, forcearray) == NULL) {
 		Py_DECREF(posarray);
 		Py_DECREF(forcearray);
 		PyErr_SetString(PyExc_RuntimeError, "Error in tree C code.");
@@ -606,10 +605,103 @@ static PyObject *jbgrav_tree_force(PyObject *self, PyObject *args)
 	return forcearray;
 }
 
+/* main wrapper - get arguments into a useful state, call workhorse, and return as
+ * a numpy array */
+static PyObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
+{
+	PyObject *pos_obj;  /* comes in as an Nx3 np.ndarray */
+	PyObject *mass_obj; /* comes in as an N-element np.ndarray */
+	PyObject *force_pos_obj;  /* comes in as an Nx3 np.ndarray */
+	double eps, theta;
+	int np, nf;
+
+	if (!PyArg_ParseTuple(args, "OOOdd", &pos_obj, &mass_obj, &force_pos_obj, &eps, &theta))
+		return NULL;
+
+	/* turn into numpy arrays */
+	PyObject *posarray = PyArray_FROM_OTF(pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+	PyObject *massarray = PyArray_FROM_OTF(mass_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+    PyObject *forceposarray = PyArray_FROM_OTF(force_pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+	/* throw exception if necessary */
+	if (posarray == NULL || massarray == NULL) {
+		Py_XDECREF(posarray);
+		Py_XDECREF(massarray);
+		Py_XDECREF(forceposarray);
+		return NULL;
+	}
+
+	/* make sure particle position array is Nx3 */
+	if(PyArray_NDIM(posarray) != 2) {
+		Py_DECREF(posarray);
+		Py_DECREF(massarray);
+		Py_XDECREF(forceposarray);
+		PyErr_SetString(PyExc_RuntimeError, "Particle position array does not have 2 dimensions.");
+		return NULL;
+	}
+	if( (int)PyArray_DIM(posarray, 1) != 3 ) {
+		Py_DECREF(posarray);
+		Py_DECREF(massarray);
+		Py_XDECREF(forceposarray);
+		PyErr_SetString(PyExc_RuntimeError, "Particle position array is not Nx3.");
+		return NULL;
+	}
+	np = (int)PyArray_DIM(posarray, 0);
+	/* and mass array has the same number of elements */
+	if( (int)PyArray_DIM(massarray, 0) != np ) {
+		Py_DECREF(posarray);
+		Py_DECREF(massarray);
+		Py_XDECREF(forceposarray);
+		PyErr_SetString(PyExc_RuntimeError, "Mass array and particle position array contain different numbers of particles.");
+		return NULL;
+	}
+
+    /* make sure force position array is Nx3 */
+    if(PyArray_NDIM(forceposarray) != 2) {
+            Py_DECREF(posarray);
+            Py_DECREF(massarray);
+            Py_XDECREF(forceposarray);
+            PyErr_SetString(PyExc_RuntimeError, "Force position array does not have 2 dimensions.");
+            return NULL;
+    }
+    if( (int)PyArray_DIM(forceposarray, 1) != 3 ) {
+            Py_DECREF(posarray);
+            Py_DECREF(massarray);
+            Py_XDECREF(forceposarray);
+            PyErr_SetString(PyExc_RuntimeError, "Force position array is not Nx3.");
+            return NULL;
+    }
+    nf = (int)PyArray_DIM(forceposarray, 0);
+
+	/* create an output array */
+	PyObject *forcearray = PyArray_NewLikeArray(forceposarray, NPY_ANYORDER, NULL, 1);
+
+	/* call the workhorse with the particle positions as forcepos too */
+	if (treeforce_workhorse(posarray, massarray, np, forceposarray, nf, eps, theta, forcearray) == NULL) {
+		Py_DECREF(posarray);
+		Py_DECREF(forcearray);
+        Py_XDECREF(forceposarray);
+		PyErr_SetString(PyExc_RuntimeError, "Error in tree C code.");
+		return NULL;
+	}
+
+	/* clean up the intermediate input ndarrays */
+	Py_DECREF(posarray);
+	Py_DECREF(massarray);
+    Py_XDECREF(forceposarray);
+
+	/* return the output */
+	return forcearray;
+}
+
+
+
 /* Tree workhorse part here. This part is in dimensionless units, so the driver
  * function in python will have to do the conversions and make sure that
- * it's a numpy array */
-PyObject* treeforce_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, double eps, double theta, PyArrayObject* forcearray)
+ * it's a numpy array.
+ * This workhorse works for both the regular and position versions because it just
+ * builds a tree based on particles and calls gravoct_calc_accel on the positions,
+ * so it can just be passed a different position array or the particle one. */
+PyObject* treeforce_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, PyArrayObject* forcepos, int nf, double eps, double theta, PyArrayObject* forcearray)
 {
 	struct gravoct_node *root;
 	struct gravoct_particle *p;
@@ -661,9 +753,9 @@ PyObject* treeforce_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, d
 	}
 
 	/* calculate forces */
-	for(i=0; i<np; i++) {
+	for(i=0; i<nf; i++) {
 		for(j=0; j<3; j++) {
-			thispos[j] = *(double *)PyArray_GETPTR2(pos,i,j);
+			thispos[j] = *(double *)PyArray_GETPTR2(forcepos,i,j);
 		}
 		gravoct_calc_accel(root, thispos, eps, theta, thisforce);
 		/* save in forcearray */

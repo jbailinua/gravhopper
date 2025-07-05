@@ -649,7 +649,8 @@ class Simulation(object):
 
 
     def add_external_timedependent_force(self, fn, args=None):
-        """Add an external time-dependent force to the simulation.
+        """
+        Add an external time-dependent force to the simulation.
          
         Forces can be in the form of:
         
@@ -693,7 +694,7 @@ class Simulation(object):
                  return rhat * GM / r2
                 
         To add the force from a particle at 10kpc on the x-axis with
-        a mass of 10\ :sup:`8` M\ :sub:`sun` that oscillates every 100 Myr::
+        a mass of 10:sup:`8` M:sub:`sun` that oscillates every 100 Myr::
         
             mysimulation = Simulation()
             mysimulation.add_external_timedependent_force(my_point_source_force, {'massamplitude':1e8*u.Msun,
@@ -806,7 +807,7 @@ class Simulation(object):
         Example
         -------
         Create a simulation object whose initial conditions consist of a
-        particle of mass 10\ :sup:`8` M\ :sub:`sun` at a position 10 kpc from the origin on
+        particle of mass 10:sup:`8` M:sub:`sun` at a position 10 kpc from the origin on
         the x-axis, and a velocity of 200 km/s in the positive y-direction::
          
             sim = Simulation()
@@ -1155,7 +1156,7 @@ class IC(object):
             
         Example
         -------
-        Sample an NFW halo with scale radius 20 kpc, scale amplitude 2x10\ :sup:`11` solar masses, and a maximum
+        Sample an NFW halo with scale radius 20 kpc, scale amplitude 2x10:sup:`11` solar masses, and a maximum
         radius of 1 Mpc with 10,000 particles::
         
               from astropy import units as u
@@ -1307,7 +1308,7 @@ class IC(object):
 
         Example
         -------
-        To create a truncated singular isothermal sphere with a total mass of 10\ :sup:`11` solar masses,
+        To create a truncated singular isothermal sphere with a total mass of 10:sup:`11` solar masses,
         a truncation radius of 100 kpc, sampled with 10,000 particles::
         
             particles = IC.TSiS(N=10000, maxrad=100*u.kpc, totmass=1e11*u.Msun)
@@ -1381,7 +1382,7 @@ class IC(object):
            
         Example
         -------
-        To create a Plummer sphere with scale radius 1 pc and a total mass of 10\ :sup:`6` M\ :sub:`sun`
+        To create a Plummer sphere with scale radius 1 pc and a total mass of 10:sup:`6` M:sub:`sun`
         sampled with 10,000 particles::
         
             particles = IC.Plummer(N=10000, b=1*u.pc, totmass=1e6*u.Msun)
@@ -1476,7 +1477,7 @@ class IC(object):
            
         Example
         -------
-        To create a Hernquist sphere with a total mass of 10\ :sup:`10` solar masses, a scale radius
+        To create a Hernquist sphere with a total mass of 10:sup:`10` solar masses, a scale radius
         of 1 kpc, sampled with 10,000 particles::
         
             particles = IC.Hernquist(N=10000, a=1*u.kpc, totmass=1e10*u.Msun)

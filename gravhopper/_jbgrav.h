@@ -28,6 +28,7 @@ void gravoct_calc_subnode(struct gravoct_node *tree, struct gravoct_particle *p,
 void gravoct_finalize(struct gravoct_node *tree);
 void gravoct_deltree(struct gravoct_node *tree);
 static PyObject *jbgrav_tree_force(PyObject *self, PyObject *args);
-PyObject* treeforce_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, double eps, double theta, PyArrayObject* forcearray);
+static PyObject *jbgrav_tree_force_position(PyObject *self, PyObject *args);
+PyObject* treeforce_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, PyArrayObject* forcepos, int nf, double eps, double theta, PyArrayObject* forcearray);
 
 
