@@ -65,7 +65,7 @@ PyMODINIT_FUNC PyInit__jbgrav(void)
 
 /* main wrapper - get arguments into a useful state, call workhorse, and return as
  * a numpy array */
-static PyObject *jbgrav_direct_summation(PyObject *self, PyObject *args)
+static PyArrayObject *jbgrav_direct_summation(PyObject *self, PyObject *args)
 {
 	PyObject *pos_obj;  /* comes in as an Nx3 np.ndarray */
 	PyObject *mass_obj; /* comes in as an N-element np.ndarray */
@@ -76,8 +76,8 @@ static PyObject *jbgrav_direct_summation(PyObject *self, PyObject *args)
 		return NULL;
 
 	/* turn into numpy arrays */
-	PyObject *posarray = PyArray_FROM_OTF(pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
-	PyObject *massarray = PyArray_FROM_OTF(mass_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+	PyArrayObject *posarray = (PyArrayObject*) PyArray_FROM_OTF(pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+	PyArrayObject *massarray = (PyArrayObject*) PyArray_FROM_OTF(mass_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
 	/* throw exception if necessary */
 	if (posarray == NULL || massarray == NULL) {
 		Py_XDECREF(posarray);
@@ -108,11 +108,19 @@ static PyObject *jbgrav_direct_summation(PyObject *self, PyObject *args)
 	}
 
 	/* create an output array */
-	PyObject *forcearray = PyArray_NewLikeArray(posarray, NPY_ANYORDER, NULL, 1);
+	PyArrayObject *forcearray = (PyArrayObject*) PyArray_NewLikeArray(posarray, NPY_ANYORDER, NULL, 1);
+	/* throw exception if necessary */
+	if (forcearray == NULL) {
+	    Py_DECREF(posarray);
+	    Py_DECREF(massarray);
+	    Py_XDECREF(forcearray);
+	    return NULL;
+	}
 
 	/* call the workhorse */
 	if (directsummation_workhorse(posarray, massarray, np, eps, forcearray) == NULL) {
 		Py_DECREF(posarray);
+		Py_DECREF(massarray);
 		Py_DECREF(forcearray);
 		PyErr_SetString(PyExc_RuntimeError, "Error in direct summation C code.");
 		return NULL;
@@ -189,7 +197,7 @@ PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int
 
 /* main wrapper - get arguments into a useful state, call workhorse, and return as
  * a numpy array */
-static PyObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args)
+static PyArrayObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args)
 {
 	PyObject *pos_obj;  /* comes in as an Npx3 np.ndarray */
 	PyObject *mass_obj; /* comes in as an Np-element np.ndarray */
@@ -201,9 +209,9 @@ static PyObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args
 		return NULL;
 
 	/* turn into numpy arrays */
-	PyObject *posarray = PyArray_FROM_OTF(pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
-	PyObject *massarray = PyArray_FROM_OTF(mass_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
-	PyObject *forceposarray = PyArray_FROM_OTF(force_pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+	PyArrayObject *posarray = (PyArrayObject*) PyArray_FROM_OTF(pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+	PyArrayObject *massarray = (PyArrayObject*) PyArray_FROM_OTF(mass_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+	PyArrayObject *forceposarray = (PyArrayObject*) PyArray_FROM_OTF(force_pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
 	/* throw exception if necessary */
 	if (posarray == NULL || massarray == NULL || forceposarray == NULL) {
 		Py_XDECREF(posarray);
@@ -216,14 +224,14 @@ static PyObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args
 	if(PyArray_NDIM(posarray) != 2) {
 		Py_DECREF(posarray);
 		Py_DECREF(massarray);
-		Py_XDECREF(forceposarray);
+		Py_DECREF(forceposarray);
 		PyErr_SetString(PyExc_RuntimeError, "Particle position array does not have 2 dimensions.");
 		return NULL;
 	}
 	if( (int)PyArray_DIM(posarray, 1) != 3 ) {
 		Py_DECREF(posarray);
 		Py_DECREF(massarray);
-		Py_XDECREF(forceposarray);
+		Py_DECREF(forceposarray);
 		PyErr_SetString(PyExc_RuntimeError, "Particle position array is not Nx3.");
 		return NULL;
 	}
@@ -232,7 +240,7 @@ static PyObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args
 	if( (int)PyArray_DIM(massarray, 0) != np ) {
 		Py_DECREF(posarray);
 		Py_DECREF(massarray);
-		Py_XDECREF(forceposarray);
+		Py_DECREF(forceposarray);
 		PyErr_SetString(PyExc_RuntimeError, "Mass array and particle position array contain different numbers of particles.");
 		return NULL;
 	}
@@ -241,14 +249,14 @@ static PyObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args
 	if(PyArray_NDIM(forceposarray) != 2) {
 		Py_DECREF(posarray);
 		Py_DECREF(massarray);
-		Py_XDECREF(forceposarray);
+		Py_DECREF(forceposarray);
 		PyErr_SetString(PyExc_RuntimeError, "Force position array does not have 2 dimensions.");
 		return NULL;
 	}
 	if( (int)PyArray_DIM(forceposarray, 1) != 3 ) {
 		Py_DECREF(posarray);
 		Py_DECREF(massarray);
-		Py_XDECREF(forceposarray);
+		Py_DECREF(forceposarray);
 		PyErr_SetString(PyExc_RuntimeError, "Force position array is not Nx3.");
 		return NULL;
 	}
@@ -256,13 +264,22 @@ static PyObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args
 	
 
 	/* create an output array */
-	PyObject *forcearray = PyArray_NewLikeArray(forceposarray, NPY_ANYORDER, NULL, 1);
-
+	PyArrayObject *forcearray = (PyArrayObject*) PyArray_NewLikeArray(forceposarray, NPY_ANYORDER, NULL, 1);
+	/* throw exception if necessary */
+	if (forcearray == NULL) {
+	    Py_DECREF(posarray);
+	    Py_DECREF(massarray);
+	    Py_DECREF(forceposarray);
+	    Py_XDECREF(forcearray);
+	    return NULL;
+	}
+	
 	/* call the workhorse */
 	if (directsummation_position_workhorse(posarray, massarray, np, forceposarray, nf, eps, forcearray) == NULL) {
 		Py_DECREF(posarray);
+		Py_DECREF(massarray);
 		Py_DECREF(forcearray);
-		Py_XDECREF(forceposarray);
+		Py_DECREF(forceposarray);
 		PyErr_SetString(PyExc_RuntimeError, "Error in direct summation position C code.");
 		return NULL;
 	}
@@ -270,7 +287,7 @@ static PyObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args
 	/* clean up the intermediate input ndarrays */
 	Py_DECREF(posarray);
 	Py_DECREF(massarray);
-    Py_XDECREF(forceposarray);
+    Py_DECREF(forceposarray);
 
 	/* return the output */
 	return forcearray;
@@ -544,7 +561,7 @@ void gravoct_deltree(struct gravoct_node *tree) {
 
 /* main wrapper - get arguments into a useful state, call workhorse, and return as
  * a numpy array */
-static PyObject *jbgrav_tree_force(PyObject *self, PyObject *args)
+static PyArrayObject *jbgrav_tree_force(PyObject *self, PyObject *args)
 {
 	PyObject *pos_obj;  /* comes in as an Nx3 np.ndarray */
 	PyObject *mass_obj; /* comes in as an N-element np.ndarray */
@@ -555,8 +572,8 @@ static PyObject *jbgrav_tree_force(PyObject *self, PyObject *args)
 		return NULL;
 
 	/* turn into numpy arrays */
-	PyObject *posarray = PyArray_FROM_OTF(pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
-	PyObject *massarray = PyArray_FROM_OTF(mass_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+	PyArrayObject *posarray = (PyArrayObject*) PyArray_FROM_OTF(pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+	PyArrayObject *massarray = (PyArrayObject*) PyArray_FROM_OTF(mass_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
 	/* throw exception if necessary */
 	if (posarray == NULL || massarray == NULL) {
 		Py_XDECREF(posarray);
@@ -587,7 +604,14 @@ static PyObject *jbgrav_tree_force(PyObject *self, PyObject *args)
 	}
 
 	/* create an output array */
-	PyObject *forcearray = PyArray_NewLikeArray(posarray, NPY_ANYORDER, NULL, 1);
+	PyArrayObject *forcearray = (PyArrayObject*) PyArray_NewLikeArray(posarray, NPY_ANYORDER, NULL, 1);
+	/* throw exception if necessary */
+	if (forcearray == NULL) {
+	    Py_DECREF(posarray);
+	    Py_DECREF(massarray);
+	    Py_XDECREF(forcearray);
+	    return NULL;
+	}
 
 	/* call the workhorse with the particle positions as forcepos too */
 	if (treeforce_workhorse(posarray, massarray, np, posarray, np, eps, theta, forcearray) == NULL) {
@@ -607,7 +631,7 @@ static PyObject *jbgrav_tree_force(PyObject *self, PyObject *args)
 
 /* main wrapper - get arguments into a useful state, call workhorse, and return as
  * a numpy array */
-static PyObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
+static PyArrayObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
 {
 	PyObject *pos_obj;  /* comes in as an Nx3 np.ndarray */
 	PyObject *mass_obj; /* comes in as an N-element np.ndarray */
@@ -619,9 +643,9 @@ static PyObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
 		return NULL;
 
 	/* turn into numpy arrays */
-	PyObject *posarray = PyArray_FROM_OTF(pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
-	PyObject *massarray = PyArray_FROM_OTF(mass_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
-    PyObject *forceposarray = PyArray_FROM_OTF(force_pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+	PyArrayObject *posarray = (PyArrayObject*) PyArray_FROM_OTF(pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+	PyArrayObject *massarray = (PyArrayObject*) PyArray_FROM_OTF(mass_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+    PyArrayObject *forceposarray = (PyArrayObject*) PyArray_FROM_OTF(force_pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
 	/* throw exception if necessary */
 	if (posarray == NULL || massarray == NULL) {
 		Py_XDECREF(posarray);
@@ -634,14 +658,14 @@ static PyObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
 	if(PyArray_NDIM(posarray) != 2) {
 		Py_DECREF(posarray);
 		Py_DECREF(massarray);
-		Py_XDECREF(forceposarray);
+		Py_DECREF(forceposarray);
 		PyErr_SetString(PyExc_RuntimeError, "Particle position array does not have 2 dimensions.");
 		return NULL;
 	}
 	if( (int)PyArray_DIM(posarray, 1) != 3 ) {
 		Py_DECREF(posarray);
 		Py_DECREF(massarray);
-		Py_XDECREF(forceposarray);
+		Py_DECREF(forceposarray);
 		PyErr_SetString(PyExc_RuntimeError, "Particle position array is not Nx3.");
 		return NULL;
 	}
@@ -650,7 +674,7 @@ static PyObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
 	if( (int)PyArray_DIM(massarray, 0) != np ) {
 		Py_DECREF(posarray);
 		Py_DECREF(massarray);
-		Py_XDECREF(forceposarray);
+		Py_DECREF(forceposarray);
 		PyErr_SetString(PyExc_RuntimeError, "Mass array and particle position array contain different numbers of particles.");
 		return NULL;
 	}
@@ -659,27 +683,36 @@ static PyObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
     if(PyArray_NDIM(forceposarray) != 2) {
             Py_DECREF(posarray);
             Py_DECREF(massarray);
-            Py_XDECREF(forceposarray);
+            Py_DECREF(forceposarray);
             PyErr_SetString(PyExc_RuntimeError, "Force position array does not have 2 dimensions.");
             return NULL;
     }
     if( (int)PyArray_DIM(forceposarray, 1) != 3 ) {
             Py_DECREF(posarray);
             Py_DECREF(massarray);
-            Py_XDECREF(forceposarray);
+            Py_DECREF(forceposarray);
             PyErr_SetString(PyExc_RuntimeError, "Force position array is not Nx3.");
             return NULL;
     }
     nf = (int)PyArray_DIM(forceposarray, 0);
 
 	/* create an output array */
-	PyObject *forcearray = PyArray_NewLikeArray(forceposarray, NPY_ANYORDER, NULL, 1);
+	PyArrayObject *forcearray = (PyArrayObject*) PyArray_NewLikeArray(forceposarray, NPY_ANYORDER, NULL, 1);
+	/* throw exception if necessary */
+	if (forcearray == NULL) {
+	    Py_DECREF(posarray);
+	    Py_DECREF(massarray);
+	    Py_DECREF(forceposarray);
+	    Py_XDECREF(forcearray);
+	    return NULL;
+	}
 
 	/* call the workhorse with the particle positions as forcepos too */
 	if (treeforce_workhorse(posarray, massarray, np, forceposarray, nf, eps, theta, forcearray) == NULL) {
 		Py_DECREF(posarray);
+		Py_DECREF(massarray);
+        Py_DECREF(forceposarray);
 		Py_DECREF(forcearray);
-        Py_XDECREF(forceposarray);
 		PyErr_SetString(PyExc_RuntimeError, "Error in tree C code.");
 		return NULL;
 	}
@@ -687,7 +720,7 @@ static PyObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
 	/* clean up the intermediate input ndarrays */
 	Py_DECREF(posarray);
 	Py_DECREF(massarray);
-    Py_XDECREF(forceposarray);
+    Py_DECREF(forceposarray);
 
 	/* return the output */
 	return forcearray;

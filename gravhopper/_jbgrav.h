@@ -1,7 +1,7 @@
-static PyObject *jbgrav_direct_summation(PyObject *self, PyObject *args);
+static PyArrayObject *jbgrav_direct_summation(PyObject *self, PyObject *args);
 PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, double eps, PyArrayObject* forcearray);
 
-static PyObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args);
+static PyArrayObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args);
 PyObject* directsummation_position_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, PyArrayObject* forcepos, int nf, double eps, PyArrayObject* forcearray);
 
 
@@ -27,8 +27,8 @@ int gravoct_calc_branchnum(int *subnode);
 void gravoct_calc_subnode(struct gravoct_node *tree, struct gravoct_particle *p, int *subnode);
 void gravoct_finalize(struct gravoct_node *tree);
 void gravoct_deltree(struct gravoct_node *tree);
-static PyObject *jbgrav_tree_force(PyObject *self, PyObject *args);
-static PyObject *jbgrav_tree_force_position(PyObject *self, PyObject *args);
+static PyArrayObject *jbgrav_tree_force(PyObject *self, PyObject *args);
+static PyArrayObject *jbgrav_tree_force_position(PyObject *self, PyObject *args);
 PyObject* treeforce_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, PyArrayObject* forcepos, int nf, double eps, double theta, PyArrayObject* forcearray);
 
 
