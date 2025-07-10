@@ -31,7 +31,7 @@ from astropy import units as u, constants as const
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
-# Check if any of pynbody, galpy, and gala are there. If so, import them.
+# Check if any of pynbody, galpy, gala, and/or Agama are there. If so, import them.
 try:
     import pynbody as pyn
     USE_PYNBODY = True
@@ -54,6 +54,13 @@ try:
 except ImportError:
     USE_GALA = False
     pass
+    
+try:
+    import agama
+    USE_AGAMA = True
+except ImportError:
+    USE_AGAMA = False
+    pass
 
 
 class GravHopperException(Exception):
@@ -74,7 +81,7 @@ class UnknownAlgorithmException(GravHopperException):
     pass
     
 class ExternalPackageException(GravHopperException):
-    """Exception for trying to call a pynbody/galpy/gala function when not using them."""
+    """Exception for trying to call a pynbody/galpy/gala/agama function when not using them."""
     def __init__(self,msg):
         print(msg)
 
@@ -576,8 +583,20 @@ class Simulation(object):
         return accel
 
 
+    def agama_potential_wrapper(self, agamapot, pos, agama_units=None, time=None):
+        """Wrapper to calculate acceleration from an Agama Potential object."""
+        
+        pos_without_units = pos.to(agama_units['lenunit']).value
+        if time is None:
+            accel = agamapot.force(pos)
+        else:
+            accel = agamapot.force(pos, t=time)
+            
+        return accel*agama_units['accelunit']
 
-    def add_external_force(self, fn, args=None):
+
+
+    def add_external_force(self, fn, args=None, agama_units=None):
         """Add an external position-dependent force to the simulation.
  
         Forces can be in the form of:
@@ -590,6 +609,8 @@ class Simulation(object):
         2. A galpy potential object.
 
         3. A gala Potential object.
+        
+        4. An Agama Potential object.
 
         You may add as many external forces as you want - they will be summed
         together along with the N-body force.
@@ -600,6 +621,12 @@ class Simulation(object):
             External force function to add
         args : dict
             Any extra parameters that should be passed to the function when it is called
+        agama_units : dict
+            Agama potentials take unitless values, so assume that the Agama potential has
+            been defined with this set of units. The dict should contain the keys 
+            'lenunit' and 'accelunit', which should each by an Astropy Unit or Quantity.
+            Required for Agama potentials, ignored otherwise.
+            
             
         Example
         -------
@@ -642,6 +669,17 @@ class Simulation(object):
                 galpy_fn = lambda x, a: self.galpy_potential_wrapper(fn, x)
                 self.extra_force_functions.append( (galpy_fn, args) )
                 return
+                
+        if USE_AGAMA:
+            # Check if it's an Agama potential
+            if isinstance(fn, agama.Potential):
+                # Make sure units were defined.
+                if (agama_units is None) or ('lenunit' not in agama_units) or \
+                    ('accelunit' not in agama_units):
+                    raise ExternalPackageException("Agama potential requires agama_units.")
+                agama_fn = lambda x, a: self.agama_potential_wrapper(fn, x, agama_units=agama_units)
+                self.extra_force_functions.append( (agama_fn, args) )
+                return
 
         # If it hasn't returned before now, it's presumably just a function
         self.extra_force_functions.append( (fn,args) )
@@ -663,6 +701,8 @@ class Simulation(object):
            
         3. A gala Potential object.
 
+        4. An Agama Potential object.
+
         You may add as many external forces as you want - they will be summed
         together along with the N-body force.
         
@@ -673,6 +713,11 @@ class Simulation(object):
             External force function to add
         args : dict
             Any extra parameters that should be passed to the function when it is called              
+        agama_units : dict
+            Agama potentials take unitless values, so assume that the Agama potential has
+            been defined with this set of units. The dict should contain the keys 
+            'lenunit' and 'accelunit', which should each by an Astropy Unit or Quantity.
+            Required for Agama potentials, ignored otherwise.
 
 
         Example
@@ -720,6 +765,17 @@ class Simulation(object):
             if isinstance(fn, galpy.potential.Potential):
                 galpy_fn = lambda x, t, a: self.galpy_potential_wrapper(fn, x, time=t)
                 self.extra_timedependent_force_functions.append( (galpy_fn, args) )
+                return
+
+        if USE_AGAMA:
+            # Check if it's an Agama potential
+            if isinstance(fn, agama.Potential):
+                # Make sure units were defined.
+                if (agama_units is None) or ('lenunit' not in agama_units) or \
+                    ('accelunit' not in agama_units):
+                    raise ExternalPackageException("Agama potential requires agama_units.")
+                agama_fn = lambda x, t, a: self.agama_potential_wrapper(fn, x, agama_units=agama_units, time=t)
+                self.extra_timedependent_force_functions.append( (agama_fn, args) )
                 return
 
         # If it hasn't returned before now, it's presumably just a function
