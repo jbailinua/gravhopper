@@ -24,7 +24,7 @@ GravHopperException : Exceptions raised within GravHopper
 
 from . import jbgrav
 import numpy as np
-from scipy.misc import derivative
+from scipy.differentiate import derivative
 from scipy.interpolate import interp1d
 from scipy import special, integrate
 from astropy import units as u, constants as const
@@ -588,9 +588,11 @@ class Simulation(object):
         
         pos_without_units = pos.to(agama_units['lenunit']).value
         if time is None:
-            accel = agamapot.force(pos)
+            accel = agamapot.force(pos_without_units)
         else:
-            accel = agamapot.force(pos, t=time)
+            timeunit = np.sqrt(agama_units['lenunit'] / agama_units['accelunit'])
+            time_without_units = time.to(timeunit).value
+            accel = agamapot.force(pos_without_units, t=time_without_units)
             
         return accel*agama_units['accelunit']
 
@@ -686,7 +688,7 @@ class Simulation(object):
 
 
 
-    def add_external_timedependent_force(self, fn, args=None):
+    def add_external_timedependent_force(self, fn, agama_units=None, args=None):
         """
         Add an external time-dependent force to the simulation.
          
