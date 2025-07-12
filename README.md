@@ -9,7 +9,7 @@ because it uses a leapfrog integrator.
 
 This is a simple Python-interface code for performing gravitational N-body simulations. It combines a simple Python interface for ease of use with a C backend for speed, and has the following features:
  - Choice of Barnes-Hut tree or direct summation algorithm.
- - Ability to include external potentials from galpy, gala, or user-supplied functions.
+ - Ability to include external potentials from galpy, gala, agama, or user-supplied functions.
  - Ability to return output as pynbody snapshots.
  - Functions that generate equilibrium or near-equilibrium initial conditions (ICs) for
     several density profiles (Plummer, Hernquist, exponential disk), along with the ability
@@ -23,7 +23,7 @@ Requirements:
  - NumPy, SciPy, Matplotlib
  - C compiler
  - To use [galpy](https://github.com/jobovy/galpy), [gala](http://gala.adrian.pw/en/latest/),
-    or [pynbody](https://pynbody.github.io/pynbody/) interface functions, they will need to be installed.
+    [pynbody](https://pynbody.github.io/pynbody/), or [agama](https://github.com/GalacticDynamics-Oxford/Agama) interface functions, they will need to be installed.
  - Saving movies requires [ffmpeg](https://www.ffmpeg.org/).
 
 For example, this will create a Plummer sphere with 2000 particles, run it for a few dynamical times,
