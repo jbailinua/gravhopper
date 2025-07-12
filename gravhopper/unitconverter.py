@@ -66,8 +66,31 @@ for k, v in unitmapper_pyn2ap.items():
     
 
 def pynbody_to_astropy(pynunit):
-    """Return an astropy unit equivalent to the pynbody unit input."""
+    """Return an astropy unit equivalent to the pynbody unit input.
     
+    Parameters
+    ----------
+    pynunit : pynbody.units.Unit
+        Pynbody unit to convert
+        
+    Returns
+    -------
+    apunit : astropy.unit.Unit
+        Equivalent astropy unit. If the input unit is a composite, the function will attempt
+        to compose it in the same way, but sometimes that is not possible; however, it
+        will always be equivalent numerically.
+        
+    Raises
+    ------
+    pynbody.UnitsException
+        If it cannot successfully convert the unit
+        
+    See also
+    --------
+    `astropy_to_pynbody` : Converts astropy units to pynbody units.
+    :meth:`~gravhopper.IC.from_pyn_snap` : Converts a pynbody SimSnap to Gravhopper ICs
+    """
+        
     pynunit_str = str(pynunit)
     
     # Does it have a direct astropy equivalent?
@@ -94,7 +117,30 @@ def pynbody_to_astropy(pynunit):
 
 
 def astropy_to_pynbody(apunit):
-    """Return a pynbody unit equivalent to the astropy unit input."""
+    """Return a pynbody unit equivalent to the astropy unit input.
+    
+    Parameters
+    ----------
+    apunit : astropy.unit.Unit
+        Astropy unit to convert
+        
+    Returns
+    -------
+    pynunit : pynbody.units.Unit
+        Equivalent Pynbody unit. If the input unit is a composite, the function will attempt
+        to compose it in the same way, but sometimes that is not possible; however, it
+        will always be equivalent numerically.
+        
+    Raises
+    ------
+    pynbody.UnitsException
+        If it cannot successfully convert the unit
+        
+    See also
+    --------
+    `pynbody_to_astropy` : Converts astropy units to pynbody units.
+    :meth:`~gravhopper.Simulation.pyn_snap` : Converts a Simulation snapshot to a Pynbody SimSnap
+    """
     
     # Emergency base units for each dimension.
     defaults = (u.kpc, u.s, u.Msun, u.K, u.radian, u.sr)
