@@ -31,9 +31,11 @@ from astropy import units as u, constants as const
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
+
 # Check if any of pynbody, galpy, gala, and/or Agama are there. If so, import them.
 try:
     import pynbody as pyn
+    from . import unitconverter
     USE_PYNBODY = True
 except ImportError:
     USE_PYNBODY = False
@@ -917,8 +919,8 @@ class Simulation(object):
             
         Notes
         -----
-        Returned snapshot will have length units of Unit("kpc"), velocity units of Unit("km s**-1"),
-        and mass units of Unit("Msol").
+        Returned snapshot will attempt to put the SimSnap in equivalent units as what
+        the Simulation object is using internally.
         
         Raises
         ------
@@ -931,17 +933,13 @@ class Simulation(object):
             if timestep is None:
                 timestep = self.timestep
         
-            # I don't have a good converter between astropy units and pynbody units. Pynbody
-            # to astropy works okay via string, but not vice versa. Position should be fine,
-            # since it will very likely be a base unit, but velocity will certainly be composite,
-            # and mass might be too if it was calculated, so manually force them to km/s and Msun.
-            pyn_pos_unit = pyn.units.Unit("kpc")
-            ap_pos_unit = u.kpc
-            pyn_vel_unit = pyn.units.Unit("km s**-1")
-            ap_vel_unit = u.km / u.s
-            pyn_mass_unit = pyn.units.Unit("Msol")
-            ap_mass_unit = u.Msun
-                        
+            ap_pos_unit = self.positions.unit
+            pyn_pos_unit = unitconverter.astropy_to_pynbody(ap_pos_unit)
+            ap_vel_unit = self.velocities.unit
+            pyn_vel_unit = unitconverter.astropy_to_pynbody(ap_vel_unit)
+            ap_mass_unit = self.masses.unit
+            pyn_mass_unit = unitconverter.astropy_to_pynbody(ap_mass_unit)
+                                    
             sim = pyn.new(self.Np)
             sim['pos'] = pyn.array.SimArray(self.snap(timestep)['pos'].to(ap_pos_unit).value,\
                 pyn_pos_unit)
@@ -950,6 +948,7 @@ class Simulation(object):
             sim['mass'] = pyn.array.SimArray(self.snap(timestep)['mass'].to(ap_mass_unit).value, \
                 pyn_mass_unit)
             sim['eps'] = pyn.array.SimArray(self.params['eps'].to(ap_pos_unit).value, pyn_pos_unit)
+            sim.physical_units(distance=pyn_pos_unit, velocity=pyn_vel_unit, mass=pyn_mass_unit)
             
             return sim
         else:
@@ -1293,7 +1292,7 @@ class IC(object):
 
         Note
         ----
-        The IC will be converted into the kpc-km/s-Msun unit system.
+        The IC will try to use equivalent units to what are in the SimSnap.
            
         Raises
         ------
@@ -1302,15 +1301,15 @@ class IC(object):
         """
         
         if USE_PYNBODY:
-            # Pynbody units can be complicated things with constants embedded in the
-            # unit. Convert them to a simple astropy units system of kpc-km/s-Msun.
-            pyn_pos_unit = pyn.units.Unit("kpc")
-            ap_pos_unit = u.kpc
-            pyn_vel_unit = pyn.units.Unit("km s**-1")
-            ap_vel_unit = u.km / u.s
-            pyn_mass_unit = pyn.units.Unit("Msol")
-            ap_mass_unit = u.Msun
-                
+            
+            # Figure out original units and their equivalents in astropy
+            pyn_pos_unit = pynsnap['pos'].units
+            ap_pos_unit = unitconverter.pynbody_to_astropy(pyn_pos_unit)
+            pyn_vel_unit = pynsnap['vel'].units
+            ap_vel_unit = unitconverter.pynbody_to_astropy(pyn_vel_unit)
+            pyn_mass_unit = pynsnap['mass'].units
+            ap_mass_unit = unitconverter.pynbody_to_astropy(pyn_mass_unit)
+            
             # Grab as numpy arrays and switch from pynsnap units to astropy units
             positions = pynsnap['pos'].in_units(pyn_pos_unit).view(type=np.ndarray) * ap_pos_unit
             velocities = pynsnap['vel'].in_units(pyn_vel_unit).view(type=np.ndarray) * ap_vel_unit
@@ -1784,5 +1783,3 @@ def force_centers(positions, velocities, center_pos=None, center_vel=None, force
         newvel += dvel 
 
     return (newpos, newvel)
-
-
