@@ -27,8 +27,6 @@ jobs:
             runs-on: ubuntu-24.04-arm
           - os: windows-intel
             runs-on: windows-latest
-          - os: windows-arm
-            runs-on: windows-11-arm
           - os: macos-intel
             # macos-13 was the last x86_64 runner
             runs-on: macos-13
