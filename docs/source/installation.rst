@@ -7,7 +7,7 @@ Dependencies
 ------------
  * `Astropy <https://www.astropy.org/>`_
  * NumPy, SciPy, Matplotlib
- * To use the `galpy <https://docs.galpy.org/>`_, `gala <https://github.com/adrn/gala>`_, or `pynbody <https://pynbody.github.io/pynbody/>`_ interface functions, they must be installed.
+ * To use the `galpy <https://docs.galpy.org/>`_, `gala <https://github.com/adrn/gala>`_,  `pynbody <https://pynbody.github.io/pynbody/>`_, or `agama <https://github.com/GalacticDynamics-Oxford/Agama>`_ interface functions, they must be installed.
  * Saving movies requires `ffmpeg <https://www.ffmpeg.org/>`_
 
 Install with pip (recommended)

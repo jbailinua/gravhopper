@@ -34,7 +34,7 @@ density profiles and making a movie of the evolution::
     sim.run(400)
     
     # Plot density profile before and after
-    s_IC = sim.pyn_snap(timestep=0)   # Note this always puts length in kpc
+    s_IC = sim.pyn_snap(timestep=0)
     s_final = sim.pyn_snap()
     p_IC = Profile(s_IC, ndim=3, min=0.0001, max=0.02, nbins=20)
     p_final = Profile(s_final, ndim=3, min=0.0001, max=0.02, nbins=20)

@@ -18,11 +18,11 @@ sys.path.insert(0, os.path.abspath('../..'))
 # -- Project information -----------------------------------------------------
 
 project = 'GravHopper'
-copyright = '2021, Jeremy Bailin'
+copyright = '2025, Jeremy Bailin'
 author = 'Jeremy Bailin'
 
 # The full version, including alpha/beta/rc tags
-release = '1.1.0'
+release = '1.2.0'
 
 
 # -- General configuration ---------------------------------------------------

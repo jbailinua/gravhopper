@@ -6,6 +6,7 @@ GravHopper consists of the following submodules:
 * :ref:`simulation_object`
 * :ref:`ic`
 * :ref:`jbgrav`
+* :ref:`unitconverter`
 * :ref:`exceptions`
 
 
@@ -57,6 +58,14 @@ This seed is fed directly into ``numpy.random.default_rng()``.
 .. autoclass:: gravhopper.IC
     :members:
 
+
+.. _unitconverter:
+
+unitconverter
+-------------
+
+.. automodule:: gravhopper.unitconverter
+    :members:
 
 
 .. _jbgrav:

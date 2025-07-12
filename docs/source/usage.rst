@@ -89,7 +89,7 @@ Add external forces (optional)
 
 An external force field can be added to the simulation, so particles feel both the
 N-body force from the particle distribution and the external force. Forces can be
-implemented as simple functions, or using ``galpy`` or ``gala`` potential objects. A force
+implemented as simple functions, or using ``galpy``, ``gala``, or ``agama`` potential objects. A force
 that only depends on position is added using :meth:`~gravhopper.Simulation.add_external_force`;
 one that also depends on time is added using :meth:`~gravhopper.Simulation.add_external_timedependent_force`;
 and one that depends on velocity (i.e. a dissipative force) is added using
@@ -176,7 +176,7 @@ For example, you could plot a before-and-after 3D density
 profile using::
 
     from pynbody.analysis.profile import Profile
-    s_IC = sim.pyn_snap(timestep=0)   # Note this always puts length in kpc
+    s_IC = sim.pyn_snap(timestep=0)
     s_final = sim.pyn_snap()
     p_IC = Profile(s_IC, ndim=3, min=0.0001, max=0.02, nbins=20)
     p_final = Profile(s_final, ndim=3, min=0.0001, max=0.02, nbins=20)

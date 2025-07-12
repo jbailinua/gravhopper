@@ -5,6 +5,7 @@ from astropy import units as u, constants as const
 from fractions import Fraction
 import pynbody.units as pynu
 
+__all__=['pynbody_to_astropy','astropy_to_pynbody']
 
 # Direct mapping of astropy units for all pynbody units
 unitmapper_pyn2ap = {
@@ -84,12 +85,12 @@ def pynbody_to_astropy(pynunit):
     ------
     pynbody.UnitsException
         If it cannot successfully convert the unit
-        
-    See also
-    --------
-    `astropy_to_pynbody` : Converts astropy units to pynbody units.
-    :meth:`~gravhopper.IC.from_pyn_snap` : Converts a pynbody SimSnap to Gravhopper ICs
-    """
+    """        
+#    See also
+#    --------
+#    `astropy_to_pynbody` : Converts astropy units to pynbody units.
+#    :meth:`~gravhopper.IC.from_pyn_snap` : Converts a pynbody SimSnap to Gravhopper ICs
+#    """
         
     pynunit_str = str(pynunit)
     
@@ -135,12 +136,12 @@ def astropy_to_pynbody(apunit):
     ------
     pynbody.UnitsException
         If it cannot successfully convert the unit
-        
-    See also
-    --------
-    `pynbody_to_astropy` : Converts astropy units to pynbody units.
-    :meth:`~gravhopper.Simulation.pyn_snap` : Converts a Simulation snapshot to a Pynbody SimSnap
     """
+#     See also
+#     --------
+#     `pynbody_to_astropy` : Converts astropy units to pynbody units.
+#     :meth:`~gravhopper.Simulation.pyn_snap` : Converts a Simulation snapshot to a Pynbody SimSnap
+#     """
     
     # Emergency base units for each dimension.
     defaults = (u.kpc, u.s, u.Msun, u.K, u.radian, u.sr)
