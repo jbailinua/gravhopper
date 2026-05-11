@@ -484,12 +484,12 @@ void gravoct_finalize(struct gravoct_node *tree) {
 
 /* walk the tree to calculate the acceleration at position pos from the tree tree, and
  * put the result in force */
-void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, double theta, int calc_force, int calc_potential, double *force)
+void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, double theta, int calc_force, int calc_potential, double *force, double *pot)
 {
 	int i,j;
-	double node_dist, d_pos[3], invdpos3, dpos2, diff, diff2, eps2;
+	double node_dist2, d_pos[3], invdpos3, dpos2, diff, diff2, eps2;
 	double dpos2_plus_eps2;
-	double branchforce[3];
+	double branchforce[3], branchpot;
 
 	eps2 = eps*eps;
 
@@ -514,25 +514,39 @@ void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, doub
         /* If the requested location exactly matches a leaf and eps=0,
         we can get a divide by zero. In this case, that's calculating the self-force
         of a particle on itself, which is zero. */
-        if (dpos2_plus_eps2==0.0)
-            invdpos3 = 0.0;
-        else
-            invdpos3 = 1.0 / dpos2_plus_eps2 / sqrt(dpos2_plus_eps2); /* 2x faster than pow(dpos2 + eps2, -1.5); */
-
-		for(i=0; i<3; i++) {
-			force[i] = d_pos[i] * tree->mass * invdpos3;
-		}
+        if (dpos2_plus_eps2==0.0) {
+            for(i=0; i<3; i++) {
+                force[i] = 0.0;
+            }
+            *pot = 0.0;
+        } else {
+            sqrt_dpos2_plus_eps2 = sqrt(dpos2_plus_eps2); /* needed for both accel and pot */
+            
+            if(calc_force) {
+                invdpos3 = 1.0 / dpos2_plus_eps2 / sqrt_dpos2_plus_eps2; /* 2x faster than pow(dpos2 + eps2, -1.5); */
+                for(i=0; i<3; i++) {
+                    force[i] = d_pos[i] * tree->mass * invdpos3;
+                }
+            }
+            if(calc_potential) {
+                invd = 1.0 / sqrt_dpos2_plus_eps2;
+                *pot = tree->mass * invd;
+            }
+        }
+            
 	} else {
 		/* needs to be opened */
 		for(i=0; i<3; i++) {
 			force[i] = 0.0;
 		}
+		*pot = 0.0;
 		for(j=0; j<8; j++) {
 			if(tree->branches[j]) {
-				gravoct_calc_accel(tree->branches[j], pos, eps, theta, calc_force, calc_potential, branchforce);
+				gravoct_calc_accel(tree->branches[j], pos, eps, theta, calc_force, calc_potential, branchforce, branchpot);
 				for(i=0; i<3; i++) {
 					force[i] += branchforce[i];
 				}
+				*pot += branchpot;
 			}
 		}
 	}
@@ -777,7 +791,7 @@ PyObject* treeforce_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, P
 	struct gravoct_node *root;
 	struct gravoct_particle *p;
 	double min[3], max[3], boxsize, boxcenter[3],q;
-	double thisforce[3],thispos[3];
+	double thisforce[3],thispos[3],thispot;
 
 	int i,j;
 
@@ -823,16 +837,21 @@ PyObject* treeforce_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, P
 		gravoct_add_particle(root, p);
 	}
 
-	/* calculate forces */
+	/* calculate forces and/or potentials */
 	for(i=0; i<nf; i++) {
 		for(j=0; j<3; j++) {
 			thispos[j] = *(double *)PyArray_GETPTR2(forcepos,i,j);
 		}
-		gravoct_calc_accel(root, thispos, eps, theta, calc_force, calc_potential, thisforce);
-		/* save in forcearray */
-		for(j=0; j<3; j++) {
-			*(double *)PyArray_GETPTR2(forcearray,i,j) = thisforce[j];
-		}
+		gravoct_calc_accel(root, thispos, eps, theta, calc_force, calc_potential, thisforce, thispot);
+		/* save in forcearray/potarray */
+		if(calc_force) {
+            for(j=0; j<3; j++) {
+                *(double *)PyArray_GETPTR2(forcearray,i,j) = thisforce[j];
+            }
+        }
+        if(calc_potential) {
+            *(double *)PyArray_GETPTR1(potarray,i) = thispot;
+        }
 	}
 
 	/* destroy tree */
