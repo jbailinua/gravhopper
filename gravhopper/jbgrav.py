@@ -104,20 +104,21 @@ def tree_force(snap, eps, theta=0.7, calc_force=True, calc_potential=False):
     posarray = positions.to(unit_length).value
     massarray = masses.to(unit_mass).value
     eps_in_units = eps.to(unit_length).value
-    output = _jbgrav.tree_force(posarray, massarray, eps_in_units, theta, calc_force, calc_potential)
+    jbgrav_output = _jbgrav.tree_force(posarray, massarray, eps_in_units, theta, calc_force, calc_potential)
 
     # Figure out which pieces are which to adjust units
     if calc_force:
         if calc_potential:
             # Tuple of (acceleration, potential)
-            output[0] *= unit_accel.to(desired_accel_unit)
-            output[1] *= unit_energy.to(desired_energy_unit)
+            output_accel = jbgrav_output[0] * unit_accel.to(desired_accel_unit)
+            output_pot = jbgrav_output[1] * unit_energy.to(desired_energy_unit)
+            output = (output_accel, output_pot)
         else:
             # acceleration
-            output *= unit_accel.to(desired_accel_unit)
+            output = jbgrav_output * unit_accel.to(desired_accel_unit)
     else:
         # Only potential. calc_potential must be true because we already quit at the top of the function otherwise
-        output *= unit_energy.to(desired_energy_unit)
+        output = jbgrav_output * unit_energy.to(desired_energy_unit)
         
     return output
 
