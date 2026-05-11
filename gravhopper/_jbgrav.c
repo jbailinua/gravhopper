@@ -487,8 +487,8 @@ void gravoct_finalize(struct gravoct_node *tree) {
 void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, double theta, int calc_force, int calc_potential, double *force, double *pot)
 {
 	int i,j;
-	double node_dist2, d_pos[3], invdpos3, dpos2, diff, diff2, eps2;
-	double dpos2_plus_eps2;
+	double node_dist, d_pos[3], invdpos3, invd, dpos2, diff, diff2, eps2;
+	double dpos2_plus_eps2, sqrt_dpos2_plus_eps2;
 	double branchforce[3], branchpot;
 
 	eps2 = eps*eps;
@@ -542,7 +542,7 @@ void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, doub
 		*pot = 0.0;
 		for(j=0; j<8; j++) {
 			if(tree->branches[j]) {
-				gravoct_calc_accel(tree->branches[j], pos, eps, theta, calc_force, calc_potential, branchforce, branchpot);
+				gravoct_calc_accel(tree->branches[j], pos, eps, theta, calc_force, calc_potential, branchforce, &branchpot);
 				for(i=0; i<3; i++) {
 					force[i] += branchforce[i];
 				}
@@ -575,7 +575,7 @@ void gravoct_deltree(struct gravoct_node *tree) {
 
 /* main wrapper - get arguments into a useful state, call workhorse, and return as
  * a numpy array */
-static PyArrayObject *jbgrav_tree_force(PyObject *self, PyObject *args)
+static PyObject *jbgrav_tree_force(PyObject *self, PyObject *args)
 {
 	PyObject *pos_obj;  /* comes in as an Nx3 np.ndarray */
 	PyObject *mass_obj; /* comes in as an N-element np.ndarray */
@@ -667,12 +667,12 @@ static PyArrayObject *jbgrav_tree_force(PyObject *self, PyObject *args)
 	        return forcepot_tuple;
 	    } else {
 	        /* only return acceleration */
-	        return forcearray;
+	        return (PyObject*) forcearray;
 	    }
 	} else {
 	    if(calc_potential) {
 	        /* only return potential energy */
-	        return potarray;
+	        return (PyObject*) potarray;
 	    } else {
 	        /* this should never run, but if so return None */
 	        return Py_None;
@@ -842,7 +842,7 @@ PyObject* treeforce_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, P
 		for(j=0; j<3; j++) {
 			thispos[j] = *(double *)PyArray_GETPTR2(forcepos,i,j);
 		}
-		gravoct_calc_accel(root, thispos, eps, theta, calc_force, calc_potential, thisforce, thispot);
+		gravoct_calc_accel(root, thispos, eps, theta, calc_force, calc_potential, thisforce, &thispot);
 		/* save in forcearray/potarray */
 		if(calc_force) {
             for(j=0; j<3; j++) {
