@@ -484,7 +484,7 @@ void gravoct_finalize(struct gravoct_node *tree) {
 
 /* walk the tree to calculate the acceleration at position pos from the tree tree, and
  * put the result in force */
-void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, double theta, double *force)
+void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, double theta, int calc_force, int calc_potential, double *force)
 {
 	int i,j;
 	double node_dist, d_pos[3], invdpos3, dpos2, diff, diff2, eps2;
@@ -529,7 +529,7 @@ void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, doub
 		}
 		for(j=0; j<8; j++) {
 			if(tree->branches[j]) {
-				gravoct_calc_accel(tree->branches[j], pos, eps, theta, branchforce);
+				gravoct_calc_accel(tree->branches[j], pos, eps, theta, calc_force, calc_potential, branchforce);
 				for(i=0; i<3; i++) {
 					force[i] += branchforce[i];
 				}
@@ -632,7 +632,7 @@ static PyArrayObject *jbgrav_tree_force(PyObject *self, PyObject *args)
     }
 
 	/* call the workhorse with the particle positions as forcepos */
-	if (treeforce_workhorse(posarray, massarray, np, posarray, np, eps, theta, forcearray, potarray) == NULL) {
+	if (treeforce_workhorse(posarray, massarray, np, posarray, np, eps, theta, calc_force, calc_potential, forcearray, potarray) == NULL) {
 		Py_DECREF(posarray);
 		Py_DECREF(massarray);
 		Py_XDECREF(forcearray);
@@ -746,7 +746,7 @@ static PyArrayObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
 	}
 
 	/* call the workhorse with the particle positions as forcepos too */
-	if (treeforce_workhorse(posarray, massarray, np, forceposarray, nf, eps, theta, forcearray) == NULL) {
+	if (treeforce_workhorse(posarray, massarray, np, forceposarray, nf, eps, theta, 1, 0, forcearray, NULL) == NULL) {
 		Py_DECREF(posarray);
 		Py_DECREF(massarray);
         Py_DECREF(forceposarray);
@@ -772,7 +772,7 @@ static PyArrayObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
  * This workhorse works for both the regular and position versions because it just
  * builds a tree based on particles and calls gravoct_calc_accel on the positions,
  * so it can just be passed a different position array or the particle one. */
-PyObject* treeforce_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, PyArrayObject* forcepos, int nf, double eps, double theta, PyArrayObject* forcearray)
+PyObject* treeforce_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, PyArrayObject* forcepos, int nf, double eps, double theta, int calc_force, int calc_potential, PyArrayObject* forcearray, PyArrayObject* potarray)
 {
 	struct gravoct_node *root;
 	struct gravoct_particle *p;
@@ -828,7 +828,7 @@ PyObject* treeforce_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, P
 		for(j=0; j<3; j++) {
 			thispos[j] = *(double *)PyArray_GETPTR2(forcepos,i,j);
 		}
-		gravoct_calc_accel(root, thispos, eps, theta, thisforce);
+		gravoct_calc_accel(root, thispos, eps, theta, calc_force, calc_potential, thisforce);
 		/* save in forcearray */
 		for(j=0; j<3; j++) {
 			*(double *)PyArray_GETPTR2(forcearray,i,j) = thisforce[j];
