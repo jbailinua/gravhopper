@@ -49,7 +49,7 @@ def direct_summation(snap, eps):
 
 
 
-def tree_force(snap, eps, theta=0.7):
+def tree_force(snap, eps, theta=0.7, calc_force=True, calc_potential=False):
     """Calculate the gravitational acceleration on every particle in
     the simulation snapshot from every other particle in the snapshot
     using a Barnes-Hut tree. Uses an external C module for speed.
@@ -64,12 +64,31 @@ def tree_force(snap, eps, theta=0.7):
         Gravitational softening length.
     theta : float
         Opening angle in radians. (default: 0.7)
+    calc_force : boolean
+        True if the force should be calculated. Can be set to False to only calculate
+        the potential. (default: True)
+    calc_potential: boolean
+        True if the potential should be calculated. (default: False)
 
     Returns
     -------
-    acceleration : array
-        An (Np,3) numpy array of the acceleration vector calculated for each particle.
+    acceleration : array or tuple
+        Return type depends on the values of calc_force and calc_potential.
+
+        If calc_force=True then the accelerations are returned as an (Np,3) numpy
+        array of the acceleration vector calculated for each particle.
+
+        If calc_potential=True then the potential energies are returned as an Np
+        element numpy array of the potential energies calculated for each particle.
+
+        If both are set, then the return is a tuple (accelerations, potentials,).
+
+        If neither is set, the function does no work and returns None.
     """
+    
+    # Quit if nothing to be done
+    if not (calc_force or calc_potential):
+        return None
 
     positions = snap['pos']
     masses = snap['mass']
@@ -78,14 +97,29 @@ def tree_force(snap, eps, theta=0.7):
     unit_length = u.kpc
     unit_mass = u.Msun
     unit_accel = const.G * unit_mass / (unit_length**2)
+    unit_energy = const.G * unit_mass / unit_length
     desired_accel_unit = u.km / u.s / u.Myr
+    desired_energy_unit = u.km**2 / u.s**2
 
     posarray = positions.to(unit_length).value
     massarray = masses.to(unit_mass).value
     eps_in_units = eps.to(unit_length).value
-    forcearray = _jbgrav.tree_force(posarray, massarray, eps_in_units, theta)
+    output = _jbgrav.tree_force(posarray, massarray, eps_in_units, theta, calc_force, calc_potential)
 
-    return forcearray * unit_accel.to(desired_accel_unit)
+    # Figure out which pieces are which to adjust units
+    if calc_force:
+        if calc_potential:
+            # Tuple of (acceleration, potential)
+            output[0] *= unit_accel.to(desired_accel_unit)
+            output[1] *= unit_energy.to(desired_energy_unit)
+        else:
+            # acceleration
+            output *= unit_accel.to(desired_accel_unit)
+    else:
+        # Only potential. calc_potential must be true because we already quit at the top of the function otherwise
+        output *= unit_energy.to(desired_energy_unit)
+        
+    return output
 
 
 def direct_summation_position(snap, force_pos, eps):
