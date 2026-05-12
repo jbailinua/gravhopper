@@ -689,9 +689,10 @@ static PyArrayObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
 	PyObject *mass_obj; /* comes in as an N-element np.ndarray */
 	PyObject *force_pos_obj;  /* comes in as an Nx3 np.ndarray */
 	double eps, theta;
-	int np, nf;
+	int np, nf, calc_force, calc_potential;
+	npy_intp outdims_pot;
 
-	if (!PyArg_ParseTuple(args, "OOOdd", &pos_obj, &mass_obj, &force_pos_obj, &eps, &theta))
+	if (!PyArg_ParseTuple(args, "OOOddpp", &pos_obj, &mass_obj, &force_pos_obj, &eps, &theta, &calc_force, &calc_potential))
 		return NULL;
 
 	/* turn into numpy arrays */
@@ -748,23 +749,45 @@ static PyArrayObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
     }
     nf = (int)PyArray_DIM(forceposarray, 0);
 
-	/* create an output array */
-	PyArrayObject *forcearray = (PyArrayObject*) PyArray_NewLikeArray(forceposarray, NPY_ANYORDER, NULL, 1);
-	/* throw exception if necessary */
-	if (forcearray == NULL) {
-	    Py_DECREF(posarray);
-	    Py_DECREF(massarray);
-	    Py_DECREF(forceposarray);
-	    Py_XDECREF(forcearray);
-	    return NULL;
-	}
+	/* create output arrays */
+	PyArrayObject *forcearray, *potarray;
+	if(calc_force) {
+        forcearray = (PyArrayObject*) PyArray_NewLikeArray(forceposarray, NPY_ANYORDER, NULL, 1);
+        /* throw exception if necessary */
+        if (forcearray == NULL) {
+            Py_DECREF(posarray);
+            Py_DECREF(massarray);
+            Py_DECREF(forceposarray);
+            Py_XDECREF(forcearray);
+            return NULL;
+        }
+    } else {
+        forcearray = NULL;
+    }
+    if(calc_potential) {
+        outdims_pot = nf;
+        potarray = (PyArrayObject*) PyArray_EMPTY(1, &outdims_pot, NPY_DOUBLE, 0);
+        /* throw exception if necessary */
+        if (forcearray == NULL) {
+            Py_DECREF(posarray);
+            Py_DECREF(massarray);
+            Py_DECREF(forceposarray);
+            Py_XDECREF(forcearray);
+            Py_XDECREF(potarray);
+            return NULL;
+        }
+    } else {
+        potarray = NULL;
+    }
+        
 
 	/* call the workhorse with the particle positions as forcepos too */
-	if (treeforce_workhorse(posarray, massarray, np, forceposarray, nf, eps, theta, 1, 0, forcearray, NULL) == NULL) {
+	if (treeforce_workhorse(posarray, massarray, np, forceposarray, nf, eps, theta, calc_force, calc_potential, forcearray, NULL) == NULL) {
 		Py_DECREF(posarray);
 		Py_DECREF(massarray);
         Py_DECREF(forceposarray);
-		Py_DECREF(forcearray);
+		Py_XDECREF(forcearray);
+		Py_XDECREF(potarray);
 		PyErr_SetString(PyExc_RuntimeError, "Error in tree C code.");
 		return NULL;
 	}
@@ -775,7 +798,24 @@ static PyArrayObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
     Py_DECREF(forceposarray);
 
 	/* return the output */
-	return forcearray;
+	if(calc_force) {
+	    if(calc_potential) {
+	        /* create and return tuple with acceleration and energy */
+	        PyObject *forcepot_tuple = PyTuple_Pack(2, forcearray, potarray);
+	        return forcepot_tuple;
+	    } else {
+	        /* only return acceleration */
+	        return (PyObject*) forcearray;
+	    }
+	} else {
+	    if(calc_potential) {
+	        /* only return potential energy */
+	        return (PyObject*) potarray;
+	    } else {
+	        /* this should never run, but if so return None */
+	        return Py_None;
+	    }
+	}
 }
 
 
