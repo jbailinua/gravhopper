@@ -690,10 +690,9 @@ static PyArrayObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
 	PyObject *force_pos_obj;  /* comes in as an Nx3 np.ndarray */
 	double eps, theta;
 	int np, nf, calc_force, calc_potential;
-	npy_intp outdims_pot;
 
 	if (!PyArg_ParseTuple(args, "OOOddpp", &pos_obj, &mass_obj, &force_pos_obj, &eps, &theta, &calc_force, &calc_potential))
-		return NULL;
+		return NULL; 
 
 	/* turn into numpy arrays */
 	PyArrayObject *posarray = (PyArrayObject*) PyArray_FROM_OTF(pos_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
@@ -765,10 +764,12 @@ static PyArrayObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
         forcearray = NULL;
     }
     if(calc_potential) {
-        outdims_pot = nf;
-        potarray = (PyArrayObject*) PyArray_EMPTY(1, &outdims_pot, NPY_DOUBLE, 0);
+        npy_intp outdims_pot[1];
+        outdims_pot[0] = (npy_intp)nf;
+        potarray = (PyArrayObject*) PyArray_EMPTY(1, outdims_pot, NPY_DOUBLE, 0); 
+
         /* throw exception if necessary */
-        if (forcearray == NULL) {
+        if (potarray == NULL) {
             Py_DECREF(posarray);
             Py_DECREF(massarray);
             Py_DECREF(forceposarray);
@@ -779,10 +780,9 @@ static PyArrayObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
     } else {
         potarray = NULL;
     }
-        
 
 	/* call the workhorse with the particle positions as forcepos too */
-	if (treeforce_workhorse(posarray, massarray, np, forceposarray, nf, eps, theta, calc_force, calc_potential, forcearray, NULL) == NULL) {
+	if (treeforce_workhorse(posarray, massarray, np, forceposarray, nf, eps, theta, calc_force, calc_potential, forcearray, potarray) == NULL) {
 		Py_DECREF(posarray);
 		Py_DECREF(massarray);
         Py_DECREF(forceposarray);
