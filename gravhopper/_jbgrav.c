@@ -184,11 +184,12 @@ PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int
 	if(calc_force) {
     	dpos = malloc(sizeof(double) * np * np * 3);
 	    invdpos3 = malloc(sizeof(double) * np * np);
+	    if((dpos==ΝULL) || (invdpos3==NULL)) return NULL;
 	}
 	if(calc_potential) {
 	    invd = malloc(sizeof(double) * np * np);
+	    if(invd==NULL) return NULL;
 	}
-	if((dpos==NULL) || (invdpos3==NULL) || (invd==NULL)) return NULL;
 
 	eps2 = eps*eps;
 	
@@ -269,9 +270,10 @@ static PyArrayObject *jbgrav_direct_summation_position(PyObject *self, PyObject 
 	PyObject *mass_obj; /* comes in as an Np-element np.ndarray */
 	PyObject *force_pos_obj;  /* comes in as an Nx3 np.ndarray */
 	double eps;
-	int np,nf;    // Number of particles, number of force locations
+	int np, nf;    // Number of particles, number of force locations
+	int calc_force, calc_potential;
 
-	if (!PyArg_ParseTuple(args, "OOOd", &pos_obj, &mass_obj, &force_pos_obj, &eps))
+	if (!PyArg_ParseTuple(args, "OOOdpp", &pos_obj, &mass_obj, &force_pos_obj, &eps, &calc_force, &calc_potential))
 		return NULL;
 
 	/* turn into numpy arrays */
@@ -329,23 +331,45 @@ static PyArrayObject *jbgrav_direct_summation_position(PyObject *self, PyObject 
 	nf = (int)PyArray_DIM(forceposarray, 0);
 	
 
-	/* create an output array */
-	PyArrayObject *forcearray = (PyArrayObject*) PyArray_NewLikeArray(forceposarray, NPY_ANYORDER, NULL, 1);
-	/* throw exception if necessary */
-	if (forcearray == NULL) {
-	    Py_DECREF(posarray);
-	    Py_DECREF(massarray);
-	    Py_DECREF(forceposarray);
-	    Py_XDECREF(forcearray);
-	    return NULL;
-	}
+	/* create output arrays */
+	PyArrayObject *forcearray, *potarray;
+	if(calc_force) {
+	    *forcearray = (PyArrayObject*) PyArray_NewLikeArray(forceposarray, NPY_ANYORDER, NULL, 1);
+        /* throw exception if necessary */
+        if (forcearray == NULL) {
+            Py_DECREF(posarray);
+            Py_DECREF(massarray);
+            Py_DECREF(forceposarray);
+            Py_XDECREF(forcearray);
+            return NULL;
+        }
+    }
+    if(calc_potential) {
+        npy_intp outdims_pot[1];
+        outdims_pot[0] = (npy_intp) nf;
+        *potarray = (PyArrayObject*) PyArray_EMPTY(1, outdims_pot, NPY_DOUBLE, 0);
+
+        /* throw exception if necessary */
+        if (potarray == NULL) {
+            Py_DECREF(posarray);
+            Py_DECREF(massarray);
+            Py_DECREF(forceposarray);
+            Py_XDECREF(forcearray);
+            Py_XDECREF(potarray);
+            return NULL;
+        }
+    } else {
+        potarray = NULL;
+    }
+        
 	
 	/* call the workhorse */
-	if (directsummation_position_workhorse(posarray, massarray, np, forceposarray, nf, eps, forcearray) == NULL) {
+	if (directsummation_position_workhorse(posarray, massarray, np, forceposarray, nf, eps, calc_force, calc_potential, forcearray, potarray) == NULL) {
 		Py_DECREF(posarray);
 		Py_DECREF(massarray);
-		Py_DECREF(forcearray);
 		Py_DECREF(forceposarray);
+		Py_XDECREF(forcearray);
+		Py_XDECREF(potarray);
 		PyErr_SetString(PyExc_RuntimeError, "Error in direct summation position C code.");
 		return NULL;
 	}
@@ -356,7 +380,24 @@ static PyArrayObject *jbgrav_direct_summation_position(PyObject *self, PyObject 
     Py_DECREF(forceposarray);
 
 	/* return the output */
-	return forcearray;
+	if(calc_force) {
+	    if(calc_potential) {
+	        /* create and return tuple with acceleration and energy */
+	        PyObject *forcepot_tuple = PyTuple_Pack(2, forcearray, potarray);
+	        return forcepot_tuple;
+	    } else {
+	        /* only return acceleration */
+	        return (PyObject*) forcearray;
+	    }
+	} else {
+	    if(calc_potential) {
+	        /* only return potential energy */
+	        return (PyObject*) potarray;
+	    } else {
+	        /* this should never run, but if so return None */
+	        return Py_None;
+	    }
+	}
 }
 
 /* Workhorse part here. This part is in dimensionless units, so the driver
@@ -366,55 +407,90 @@ static PyArrayObject *jbgrav_direct_summation_position(PyObject *self, PyObject 
  * there means it can do half as much work. */
 PyObject* directsummation_position_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, PyArrayObject* forcepos, int nf, double eps, int calc_force, int calc_potential, PyArrayObject* forcearray, PyArrayObject* potarray)
 {
-	double *dpos,*invdpos3;
-	double dpos2, dpos2_plus_eps2;
+	double *dpos,*invdpos3,*invd;
+	double dpos2, dpos2_plus_eps2, inv_sqrt_dpos2_plus_eps2;
 	double diff,diff2,eps2;
-	double *forceelement;
+	double *forceelement, *potelement;
 	int i,j,k;
 
-	dpos = malloc(sizeof(double) * nf * np * 3);
-	invdpos3 = malloc(sizeof(double) * nf * np);
-	if((dpos==NULL) || (invdpos3==NULL)) return NULL;
+    if(calc_force) {
+        dpos = malloc(sizeof(double) * nf * np * 3);
+        invdpos3 = malloc(sizeof(double) * nf * np);
+        if((dpos==NULL) || (invdpos3==NULL)) return NULL;
+    }
+    if(calc_potential) {
+        invd = malloc(sizeof(double) * nf * np);
+        if(invd==NULL) return NULL;
+    }
 
 	eps2 = eps*eps;
 	
-	/* loop through arrays calculating the dpos array */
+	/* loop through arrays calculating the dpos and distance arrays */
 	for (i=0; i<nf; i++) {
 		for(j=0; j<np; j++) {
 			dpos2 = 0.0;
 			for(k=0; k<3; k++) {
 			  diff = (*(double*)PyArray_GETPTR2(forcepos,i,k)) - (*(double*)PyArray_GETPTR2(pos,j,k));
 			  diff2 = diff*diff;
-			  dpos[i*np*3 + j*3 + k] = -diff;
 			  dpos2 += diff2;
+			  if(calc_force) {
+    			  dpos[i*np*3 + j*3 + k] = -diff;
+    		  }
 			}
 			dpos2_plus_eps2 = dpos2 + eps2;
-			/* If the requested location exactly matches a particle and eps=0,
-			we can get a divide by zero. In this case, that's calculating the self-force
-			of a particle on itself, which is zero. */
-			if (dpos2_plus_eps2==0.0)
-			    invdpos3[i*np + j] = 0.0;
-			else
-    			invdpos3[i*np + j] = 1.0 / dpos2_plus_eps2 / sqrt(dpos2_plus_eps2); 
-			/* based on my tests, this is twice as fast as pow(x, -1.5) */			
+            /* If the requested location exactly matches a particle and eps==0,
+            we can get a divide by zero. In this case, that's calculating the self-force
+            of a particle on itself, which is zero. */
+            if(dpos2_plus_eps2==0.0) {
+                if(calc_force) {
+                    invdpos3[i*np + j] = 0.0;
+                }
+                if(calc_potential) {
+                    invd[i*np + j] = 0.0;
+                }
+            } else {
+    			inv_sqrt_dpos2_plus_eps2 = 1.0 / sqrt(dpos2_plus_eps2);
+	    		if(calc_force) {
+                    invdpos3[i*np + j] = inv_sqrt_dpos2_plus_eps2 / dpos2_plus_eps2;
+                    /* based on my tests, this is twice as fast as pow(x, -1.5) */			
+                }
+                if(calc_potential) {
+                    invd[i*np + j] = inv_sqrt_dpos2_plus_eps2
+                }
+            }
 		}
 	}
 
-	/* loop through each position and add up forces */
+	/* loop through each position and add up forces/potentials */
 	for (i=0; i<nf; i++) {
-		for(k=0; k<3; k++) {
-			forceelement = (double*) PyArray_GETPTR2(forcearray, i, k);
-			*forceelement = 0.0;
-			for(j=0; j<np; j++) {
-				(*forceelement) += *(double*)PyArray_GETPTR1(mass,j) *
-					dpos[i*np*3 + j*3 + k] * invdpos3[i*np + j];
-			}
-		}
+	    if(calc_potential) {
+	        potelement = (double*) PyArray_GETPTR1(potarray, i);
+	        *potelement = 0.0;
+	        for(j=0; j<np; j++) {
+	            (*potelement) -= *(double*)PyArray_GETPTR1(mass,j) * invd[i*np + j];
+	        }
+	    }
+	
+	    if(calc_force) {
+            for(k=0; k<3; k++) {
+                forceelement = (double*) PyArray_GETPTR2(forcearray, i, k);
+                *forceelement = 0.0;
+                for(j=0; j<np; j++) {
+                    (*forceelement) += *(double*)PyArray_GETPTR1(mass,j) *
+                        dpos[i*np*3 + j*3 + k] * invdpos3[i*np + j];
+                }
+            }
+        }
 	}
 
-	/* clear up dpos and invdpos3 arrays */
-	free(dpos);
-	free(invdpos3);
+	/* clear up dpos, invdpos3, invd arrays */
+	if(calc_force) {
+        free(dpos);
+        free(invdpos3);
+    }
+    if(calc_potential) {
+        free(invd);
+    }
 
 	/* return None */
 	return Py_None;
