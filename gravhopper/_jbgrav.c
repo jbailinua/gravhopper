@@ -10,16 +10,16 @@ static char module_docstring[] =
 	"Calculation of gravitational forces using C.";
 
 static char direct_summation_docstring[] =
-	"Calculate the gravitational acceleration on every particle in the snapshot from every other particle using direct summation.";
+	"Calculate the gravitational acceleration or potential on every particle in the snapshot from every other particle using direct summation.";
 
 static char direct_summation_position_docstring[] =
-	"Calculate the gravitational acceleration at a set of positions from every particle in a simulation using direct summation.";
+	"Calculate the gravitational acceleration or potential at a set of positions from every particle in a simulation using direct summation.";
 
 static char treeforce_docstring[] =
-	"Calculate the gravitational acceleration on every particle in the snapshot from every other particle using a Barnes-Hunt tree.";
+	"Calculate the gravitational acceleration or potential on every particle in the snapshot from every other particle using a Barnes-Hunt tree.";
 
 static char treeforce_position_docstring[] =
-	"Calculate the gravitational acceleration at a set of positions from every particle in a simulation using a Barnes-Hunt tree.";
+	"Calculate the gravitational acceleration or potential at a set of positions from every particle in a simulation using a Barnes-Hunt tree.";
 
 
 static PyMethodDef module_methods[] = {
@@ -364,7 +364,7 @@ static PyArrayObject *jbgrav_direct_summation_position(PyObject *self, PyObject 
  * it's a numpy array.
  * This is a separate workhorse from directsummation_workhorse because the symmetry
  * there means it can do half as much work. */
-PyObject* directsummation_position_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, PyArrayObject* forcepos, int nf, double eps, PyArrayObject* forcearray)
+PyObject* directsummation_position_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, PyArrayObject* forcepos, int nf, double eps, int calc_force, int calc_potential, PyArrayObject* forcearray, PyArrayObject* potarray)
 {
 	double *dpos,*invdpos3;
 	double dpos2, dpos2_plus_eps2;
