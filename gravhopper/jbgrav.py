@@ -11,7 +11,7 @@ from astropy import units as u, constants as const
 
 __all__=['direct_summation', 'direct_summation_position', 'tree_force', 'tree_force_position']
 
-def direct_summation(snap, eps):
+def direct_summation(snap, eps, calc_force=True, calc_potential=False):
     """Calculate the gravitational acceleration on every particle in
     the simulation snapshot from every other particle in the snapshot
     using direct summation. Uses an external C module for speed.
@@ -24,12 +24,31 @@ def direct_summation(snap, eps):
         of the masses of each particle.
     eps : Quantity
         Gravitational softening length.
+    calc_force : boolean
+        True if the force should be calculated. Can be set to False to only calculate
+        the potential. (default: True)
+    calc_potential: boolean
+        True if the potential should be calculated. (default: False)
         
     Returns
     -------
-    acceleration : array
-        An (Np,3) numpy array of the acceleration vector calculated for each particle.
+    acceleration_potential : array or tuple
+        Return type depends on the values of calc_force and calc_potential.
+
+        If calc_force=True then the accelerations are returned as an (Np,3) numpy
+        array of the acceleration vector calculated for each particle.
+
+        If calc_potential=True then the potential energies are returned as an Np
+        element numpy array of the potential energies calculated for each particle.
+
+        If both are set, then the return is a tuple (accelerations, potentials,).
+
+        If neither is set, the function does no work and returns None.
     """
+
+    # Quit if nothing to be done
+    if not (calc_force or calc_potential):
+        return None
     
     positions = snap['pos']
     masses = snap['mass']
@@ -38,14 +57,30 @@ def direct_summation(snap, eps):
     unit_length = u.kpc
     unit_mass = u.Msun
     unit_accel = const.G * unit_mass / (unit_length**2)
+    unit_energy = const.G * unit_mass / unit_length
     desired_accel_unit = u.km / u.s / u.Myr
+    desired_energy_unit = u.km**2 / u.s**2
 
     posarray = positions.to(unit_length).value
     massarray = masses.to(unit_mass).value
     eps_in_units = eps.to(unit_length).value
-    forcearray = _jbgrav.direct_summation(posarray, massarray, eps_in_units)
+    jbgrav_output = _jbgrav.direct_summation(posarray, massarray, eps_in_units, calc_force, calc_potential)
 
-    return forcearray * unit_accel.to(desired_accel_unit)
+    # Figure out which pieces are which to adjust units
+    if calc_force:
+        if calc_potential:
+            # Tuple of (acceleration, potential)
+            output_accel = jbgrav_output[0] * unit_accel.to(desired_accel_unit)
+            output_pot = jbgrav_output[1] * unit_energy.to(desired_energy_unit)
+            output = (output_accel, output_pot)
+        else:
+            # acceleration
+            output = jbgrav_output * unit_accel.to(desired_accel_unit)
+    else:
+        # Only potential. calc_potential must be true because we already quit at the top of the function otherwise
+        output = jbgrav_output * unit_energy.to(desired_energy_unit)
+        
+    return output
 
 
 

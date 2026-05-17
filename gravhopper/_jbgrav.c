@@ -70,9 +70,9 @@ static PyArrayObject *jbgrav_direct_summation(PyObject *self, PyObject *args)
 	PyObject *pos_obj;  /* comes in as an Nx3 np.ndarray */
 	PyObject *mass_obj; /* comes in as an N-element np.ndarray */
 	double eps;
-	int np;
+	int np, calc_force, calc_potential;
 
-	if (!PyArg_ParseTuple(args, "OOd", &pos_obj, &mass_obj, &eps))
+	if (!PyArg_ParseTuple(args, "OOdpp", &pos_obj, &mass_obj, &eps, &calc_force, &calc_potential))
 		return NULL;
 
 	/* turn into numpy arrays */
@@ -107,21 +107,40 @@ static PyArrayObject *jbgrav_direct_summation(PyObject *self, PyObject *args)
 		return NULL;
 	}
 
-	/* create an output array */
-	PyArrayObject *forcearray = (PyArrayObject*) PyArray_NewLikeArray(posarray, NPY_ANYORDER, NULL, 1);
-	/* throw exception if necessary */
-	if (forcearray == NULL) {
-	    Py_DECREF(posarray);
-	    Py_DECREF(massarray);
-	    Py_XDECREF(forcearray);
-	    return NULL;
-	}
+	/* create output arrays */
+	PyArrayObject *forcearray, *potarray;
+	if(calc_force) {
+        forcearray = (PyArrayObject*) PyArray_NewLikeArray(posarray, NPY_ANYORDER, NULL, 1);
+        /* throw exception if necessary */
+        if (forcearray == NULL) {
+            Py_DECREF(posarray);
+            Py_DECREF(massarray);
+            Py_XDECREF(forcearray);
+            return NULL;
+        }
+    } else {
+        forcearray = NULL;
+    }
+    if(calc_potential) {
+        potarray = (PyArrayObject*) PyArray_NewLikeArray(massarray, NPY_ANYORDER, NULL, 1);
+        /* throw exception if necessary */
+        if (potarray == NULL) {
+            Py_DECREF(posarray);
+            Py_DECREF(massarray);
+            Py_XDECREF(forcearray);
+            Py_XDECREF(potarray);
+            return NULL;
+        }
+    } else {
+        potarray = NULL;
+    }
 
 	/* call the workhorse */
-	if (directsummation_workhorse(posarray, massarray, np, eps, forcearray) == NULL) {
+	if (directsummation_workhorse(posarray, massarray, np, eps, calc_force, calc_potential, forcearray, potarray) == NULL) {
 		Py_DECREF(posarray);
 		Py_DECREF(massarray);
-		Py_DECREF(forcearray);
+		Py_XDECREF(forcearray);
+		Py_XDECREF(potarray);
 		PyErr_SetString(PyExc_RuntimeError, "Error in direct summation C code.");
 		return NULL;
 	}
@@ -131,62 +150,109 @@ static PyArrayObject *jbgrav_direct_summation(PyObject *self, PyObject *args)
 	Py_DECREF(massarray);
 
 	/* return the output */
-	return forcearray;
+	if(calc_force) {
+	    if(calc_potential) {
+	        /* create and return tuple with acceleration and energy */
+	        PyObject *forcepot_tuple = PyTuple_Pack(2, forcearray, potarray);
+	        return forcepot_tuple;
+	    } else {
+	        /* only return acceleration */
+	        return (PyObject*) forcearray;
+	    }
+	} else {
+	    if(calc_potential) {
+	        /* only return potential energy */
+	        return (PyObject*) potarray;
+	    } else {
+	        /* this should never run, but if so return None */
+	        return Py_None;
+	    }
+	}
 }
 
 /* Workhorse part here. This part is in dimensionless units, so the driver
  * function in python will have to do the conversions and make sure that
  * it's a numpy array */
-PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, double eps, PyArrayObject* forcearray)
+PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, double eps, int calc_force, int calc_potential, PyArrayObject* forcearray, PyArrayObject* potarray)
 {
-	double *dpos,*invdpos3;
-	double dpos2, dpos2_plus_eps2;
+	double *dpos,*invdpos3,*invd;
+	double dpos2, dpos2_plus_eps2, inv_sqrt_dpos2_plus_eps2;
 	double diff,diff2,eps2;
-	double *forceelement;
+	double *forceelement,*potelement;
 	int i,j,k;
 
-	dpos = malloc(sizeof(double) * np * np * 3);
-	invdpos3 = malloc(sizeof(double) * np * np);
-	if((dpos==NULL) || (invdpos3==NULL)) return NULL;
+	if(calc_force) {
+    	dpos = malloc(sizeof(double) * np * np * 3);
+	    invdpos3 = malloc(sizeof(double) * np * np);
+	}
+	if(calc_potential) {
+	    invd = malloc(sizeof(double) * np * np);
+	}
+	if((dpos==NULL) || (invdpos3==NULL) || (invd==NULL)) return NULL;
 
 	eps2 = eps*eps;
 	
-	/* loop through arrays calculating the dpos array */
+	/* loop through arrays calculating the dpos and distance arrays */
 	for (i=0; i<np; i++) {
 		for(j=i+1; j<np; j++) {
 			dpos2 = 0.0;
 			for(k=0; k<3; k++) {
 			  diff = (*(double*)PyArray_GETPTR2(pos,i,k)) - (*(double*)PyArray_GETPTR2(pos,j,k));
 			  diff2 = diff*diff;
-			  dpos[i*np*3 + j*3 + k] = -diff;
-			  dpos[j*np*3 + i*3 + k] = diff;
 			  dpos2 += diff2;
+			  if(calc_force) {
+                  dpos[i*np*3 + j*3 + k] = -diff;
+                  dpos[j*np*3 + i*3 + k] = diff;
+              }
 			}
 			dpos2_plus_eps2 = dpos2 + eps2;
-			invdpos3[i*np + j] = 1.0 / dpos2_plus_eps2 / sqrt(dpos2_plus_eps2); 
-			/* based on my tests, this is twice as fast as pow(x, -1.5) */
-			invdpos3[j*np + i] = invdpos3[i*np + j];
+			inv_sqrt_dpos2_plus_eps2 = 1.0 / sqrt(dpos2_plus_eps2);
+			if(calc_force) {
+                invdpos3[i*np + j] = inv_sqrt_dpos2_plus_eps2 / dpos2_plus_eps2;
+                /* based on my tests, this is twice as fast as pow(x, -1.5) */
+                invdpos3[j*np + i] = invdpos3[i*np + j];
+            }
+            if(calc_potential) {
+                invd[i*np + j] = inv_sqrt_dpos2_plus_eps2;
+                invd[j*np + i] = inv_sqrt_dpos2_plus_eps2;
+            }
 			
 		}
 	}
 
-	/* loop through each particle and add up forces */
+	/* loop through each particle and add up forces/potentials */
 	for (i=0; i<np; i++) {
-		for(k=0; k<3; k++) {
-			forceelement = (double*) PyArray_GETPTR2(forcearray, i, k);
-			*forceelement = 0.0;
-			for(j=0; j<np; j++) {
-			    if (i==j) continue;  /* no self force */
-
-				(*forceelement) += *(double*)PyArray_GETPTR1(mass,j) *
-					dpos[i*np*3 + j*3 + k] * invdpos3[i*np + j];
-			}
-		}
+	    if(calc_potential) {
+	        potelement = (double*) PyArray_GETPTR1(potarray, i);
+	        *potelement = 0.0;
+	        for(j=0; j<np; j++) {
+	            if (i==j) continue;  /* no self potential */
+	            (*potelement) -= *(double*)PyArray_GETPTR1(mass,j) * invd[i*np + j];
+	        }
+	    }
+	    
+	    if(calc_force) {
+            for(k=0; k<3; k++) {
+                forceelement = (double*) PyArray_GETPTR2(forcearray, i, k);
+                *forceelement = 0.0;
+                for(j=0; j<np; j++) {
+                    if (i==j) continue;  /* no self force */
+    
+                    (*forceelement) += *(double*)PyArray_GETPTR1(mass,j) *
+                        dpos[i*np*3 + j*3 + k] * invdpos3[i*np + j];
+                }
+            }
+        }
 	}
 
-	/* clear up dpos and invdpos3 arrays */
-	free(dpos);
-	free(invdpos3);
+	/* clear up dpos, invdpos3, invd arrays */
+	if(calc_force) {
+        free(dpos);
+        free(invdpos3);
+    }
+    if(calc_potential) {
+        free(invd);
+    }
 
 	/* return None */
 	return Py_None;
@@ -295,7 +361,9 @@ static PyArrayObject *jbgrav_direct_summation_position(PyObject *self, PyObject 
 
 /* Workhorse part here. This part is in dimensionless units, so the driver
  * function in python will have to do the conversions and make sure that
- * it's a numpy array */
+ * it's a numpy array.
+ * This is a separate workhorse from directsummation_workhorse because the symmetry
+ * there means it can do half as much work. */
 PyObject* directsummation_position_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, PyArrayObject* forcepos, int nf, double eps, PyArrayObject* forcearray)
 {
 	double *dpos,*invdpos3;
@@ -488,7 +556,7 @@ void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, doub
 {
 	int i,j;
 	double node_dist, d_pos[3], invdpos3, invd, dpos2, diff, diff2, eps2;
-	double dpos2_plus_eps2, sqrt_dpos2_plus_eps2;
+	double dpos2_plus_eps2, inv_sqrt_dpos2_plus_eps2;
 	double branchforce[3], branchpot;
 
 	eps2 = eps*eps;
@@ -520,17 +588,17 @@ void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, doub
             }
             *pot = 0.0;
         } else {
-            sqrt_dpos2_plus_eps2 = sqrt(dpos2_plus_eps2); /* needed for both accel and pot */
+            inv_sqrt_dpos2_plus_eps2 = 1.0/sqrt(dpos2_plus_eps2); /* needed for both accel and pot */
             
             if(calc_force) {
-                invdpos3 = 1.0 / dpos2_plus_eps2 / sqrt_dpos2_plus_eps2; /* 2x faster than pow(dpos2 + eps2, -1.5); */
+                invdpos3 = inv_sqrt_dpos2_plus_eps2 / dpos2_plus_eps2; /* 2x faster than pow(dpos2 + eps2, -1.5); */
                 for(i=0; i<3; i++) {
                     force[i] = d_pos[i] * tree->mass * invdpos3;
                 }
             }
             if(calc_potential) {
-                invd = 1.0 / sqrt_dpos2_plus_eps2;
-                *pot = tree->mass * invd;
+                invd = inv_sqrt_dpos2_plus_eps2;
+                *pot = - tree->mass * invd;
             }
         }
             

@@ -1,5 +1,5 @@
 static PyArrayObject *jbgrav_direct_summation(PyObject *self, PyObject *args);
-PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, double eps, PyArrayObject* forcearray);
+PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, double eps, int calc_force, int calc_potential, PyArrayObject* forcearray, PyArrayObject* potarray);
 
 static PyArrayObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args);
 PyObject* directsummation_position_workhorse(PyArrayObject* pos, PyArrayObject* mass, int np, PyArrayObject* forcepos, int nf, double eps, PyArrayObject* forcearray);
