@@ -65,7 +65,7 @@ PyMODINIT_FUNC PyInit__jbgrav(void)
 
 /* main wrapper - get arguments into a useful state, call workhorse, and return as
  * a numpy array */
-static PyArrayObject *jbgrav_direct_summation(PyObject *self, PyObject *args)
+static PyObject *jbgrav_direct_summation(PyObject *self, PyObject *args)
 {
 	PyObject *pos_obj;  /* comes in as an Nx3 np.ndarray */
 	PyObject *mass_obj; /* comes in as an N-element np.ndarray */
@@ -184,7 +184,7 @@ PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int
 	if(calc_force) {
     	dpos = malloc(sizeof(double) * np * np * 3);
 	    invdpos3 = malloc(sizeof(double) * np * np);
-	    if((dpos==ΝULL) || (invdpos3==NULL)) return NULL;
+	    if((dpos==NULL) || (invdpos3==NULL)) return NULL;
 	}
 	if(calc_potential) {
 	    invd = malloc(sizeof(double) * np * np);
@@ -264,7 +264,7 @@ PyObject* directsummation_workhorse(PyArrayObject* pos, PyArrayObject* mass, int
 
 /* main wrapper - get arguments into a useful state, call workhorse, and return as
  * a numpy array */
-static PyArrayObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args)
+static PyObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args)
 {
 	PyObject *pos_obj;  /* comes in as an Npx3 np.ndarray */
 	PyObject *mass_obj; /* comes in as an Np-element np.ndarray */
@@ -334,7 +334,7 @@ static PyArrayObject *jbgrav_direct_summation_position(PyObject *self, PyObject 
 	/* create output arrays */
 	PyArrayObject *forcearray, *potarray;
 	if(calc_force) {
-	    *forcearray = (PyArrayObject*) PyArray_NewLikeArray(forceposarray, NPY_ANYORDER, NULL, 1);
+	    forcearray = (PyArrayObject*) PyArray_NewLikeArray(forceposarray, NPY_ANYORDER, NULL, 1);
         /* throw exception if necessary */
         if (forcearray == NULL) {
             Py_DECREF(posarray);
@@ -347,7 +347,7 @@ static PyArrayObject *jbgrav_direct_summation_position(PyObject *self, PyObject 
     if(calc_potential) {
         npy_intp outdims_pot[1];
         outdims_pot[0] = (npy_intp) nf;
-        *potarray = (PyArrayObject*) PyArray_EMPTY(1, outdims_pot, NPY_DOUBLE, 0);
+        potarray = (PyArrayObject*) PyArray_EMPTY(1, outdims_pot, NPY_DOUBLE, 0);
 
         /* throw exception if necessary */
         if (potarray == NULL) {
@@ -455,7 +455,7 @@ PyObject* directsummation_position_workhorse(PyArrayObject* pos, PyArrayObject* 
                     /* based on my tests, this is twice as fast as pow(x, -1.5) */			
                 }
                 if(calc_potential) {
-                    invd[i*np + j] = inv_sqrt_dpos2_plus_eps2
+                    invd[i*np + j] = inv_sqrt_dpos2_plus_eps2;
                 }
             }
 		}
@@ -827,7 +827,7 @@ static PyObject *jbgrav_tree_force(PyObject *self, PyObject *args)
 
 /* main wrapper - get arguments into a useful state, call workhorse, and return as
  * a numpy array */
-static PyArrayObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
+static PyObject *jbgrav_tree_force_position(PyObject *self, PyObject *args)
 {
 	PyObject *pos_obj;  /* comes in as an Nx3 np.ndarray */
 	PyObject *mass_obj; /* comes in as an N-element np.ndarray */
