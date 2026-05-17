@@ -219,7 +219,7 @@ def direct_summation_position(snap, force_pos, eps, calc_force=True, calc_potent
     massarray = masses.to(unit_mass).value
     eps_in_units = eps.to(unit_length).value
     forceposarray = force_pos.to(unit_length).value
-    jbgrav_output = _jbgrav.direct_summation_position(posarray, massarray, forceposarray, eps_in_units)
+    jbgrav_output = _jbgrav.direct_summation_position(posarray, massarray, forceposarray, eps_in_units, calc_force, calc_potential)
 
     # Figure out which pieces are which to adjust units
     if calc_force:
