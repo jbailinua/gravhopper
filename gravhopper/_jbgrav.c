@@ -691,7 +691,7 @@ void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, doub
                 force[i] = 0.0;
             }
         }
-        if(calc_pot) {
+        if(calc_potential) {
     		*pot = 0.0;
     	}
 		for(j=0; j<8; j++) {
