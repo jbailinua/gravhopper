@@ -1,4 +1,4 @@
-__version__='1.2.0e'
+__version__='1.2.1'
 
 from .gravhopper import Simulation, IC
 from . import jbgrav as grav

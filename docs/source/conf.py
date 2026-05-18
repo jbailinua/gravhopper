@@ -18,11 +18,11 @@ sys.path.insert(0, os.path.abspath('../..'))
 # -- Project information -----------------------------------------------------
 
 project = 'GravHopper'
-copyright = '2025, Jeremy Bailin'
+copyright = '2026, Jeremy Bailin'
 author = 'Jeremy Bailin'
 
 # The full version, including alpha/beta/rc tags
-release = '1.2.0'
+release = '1.2.1'
 
 
 # -- General configuration ---------------------------------------------------
@@ -33,6 +33,7 @@ release = '1.2.0'
 extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
+    'sphinx.ext.autodoc',
 ]
 
 # Add any paths that contain templates here, relative to this directory.

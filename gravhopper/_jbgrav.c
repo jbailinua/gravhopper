@@ -16,10 +16,10 @@ static char direct_summation_position_docstring[] =
 	"Calculate the gravitational acceleration or potential at a set of positions from every particle in a simulation using direct summation.";
 
 static char treeforce_docstring[] =
-	"Calculate the gravitational acceleration or potential on every particle in the snapshot from every other particle using a Barnes-Hunt tree.";
+	"Calculate the gravitational acceleration or potential on every particle in the snapshot from every other particle using a Barnes-Hut tree.";
 
 static char treeforce_position_docstring[] =
-	"Calculate the gravitational acceleration or potential at a set of positions from every particle in a simulation using a Barnes-Hunt tree.";
+	"Calculate the gravitational acceleration or potential at a set of positions from every particle in a simulation using a Barnes-Hut tree.";
 
 
 static PyMethodDef module_methods[] = {
@@ -343,6 +343,8 @@ static PyObject *jbgrav_direct_summation_position(PyObject *self, PyObject *args
             Py_XDECREF(forcearray);
             return NULL;
         }
+    } else {
+        forcearray = NULL;
     }
     if(calc_potential) {
         npy_intp outdims_pot[1];
@@ -659,10 +661,14 @@ void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, doub
         we can get a divide by zero. In this case, that's calculating the self-force
         of a particle on itself, which is zero. */
         if (dpos2_plus_eps2==0.0) {
-            for(i=0; i<3; i++) {
-                force[i] = 0.0;
+            if(calc_force) {
+                for(i=0; i<3; i++) {
+                    force[i] = 0.0;
+                }
             }
-            *pot = 0.0;
+            if(calc_potential) {
+                *pot = 0.0;
+            }
         } else {
             inv_sqrt_dpos2_plus_eps2 = 1.0/sqrt(dpos2_plus_eps2); /* needed for both accel and pot */
             
@@ -680,17 +686,25 @@ void gravoct_calc_accel(struct gravoct_node *tree, double *pos, double eps, doub
             
 	} else {
 		/* needs to be opened */
-		for(i=0; i<3; i++) {
-			force[i] = 0.0;
-		}
-		*pot = 0.0;
+		if(calc_force) {
+            for(i=0; i<3; i++) {
+                force[i] = 0.0;
+            }
+        }
+        if(calc_pot) {
+    		*pot = 0.0;
+    	}
 		for(j=0; j<8; j++) {
 			if(tree->branches[j]) {
 				gravoct_calc_accel(tree->branches[j], pos, eps, theta, calc_force, calc_potential, branchforce, &branchpot);
-				for(i=0; i<3; i++) {
-					force[i] += branchforce[i];
-				}
-				*pot += branchpot;
+				if(calc_force) {
+                    for(i=0; i<3; i++) {
+                        force[i] += branchforce[i];
+                    }
+                }
+                if(calc_potential) {
+    				*pot += branchpot;
+    			}
 			}
 		}
 	}

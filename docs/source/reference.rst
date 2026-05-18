@@ -75,7 +75,7 @@ jbgrav
 
 The jbgrav module contains the functions that calculate the N-body force within a
 simulation. They are used internally within :ref:`simulation_object`, but can also
-be imported and called on their own::
+be imported and called on their own, and can also calculate potentials::
 
     from gravhopper import jbgrav
     from astropy import units as u
@@ -85,7 +85,7 @@ be imported and called on their own::
     solarsystem = {'pos':np.vstack((sun['pos'],earth['pos'])),
         'vel':np.vstack((sun['vel'],earth['vel'])),
         'mass':np.vstack((sun['mass'],earth['mass']))}
-    accelerations = jbgrav.direct_summation(solarsystem, 0.01*u.au)
+    accelerations, potentials = jbgrav.direct_summation(solarsystem, 0.01*u.au, calc_potential=True)
 
 .. automodule:: gravhopper.jbgrav
     :members:
