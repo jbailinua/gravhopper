@@ -29,6 +29,8 @@ jobs:
             runs-on: windows-latest
           - os: windows-arm
             runs-on: windows-11-arm
+            env:
+              CIBW_BUILD: "cp310-* cp311* cp312* cp313* cp314*"
           - os: macos-intel
             # macos-15 was the last x86_64 runner
             runs-on: macos-15-intel
